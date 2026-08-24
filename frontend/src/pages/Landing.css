@@ -76,74 +76,19 @@
 .landing__hero-card {
   padding: 26px 28px 24px;
   border-radius: var(--radius-xl);
-  position: relative;
-  overflow: hidden;
-}
-
-.landing__hero-card::before {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  background: radial-gradient(circle at 70% 20%, rgba(99, 102, 241, 0.16), transparent 55%);
-  pointer-events: none;
-}
-
-.landing__hero-card > * {
-  position: relative;
 }
 
 .landing__hero-card-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 10.5px;
-  letter-spacing: 0.2em;
-  color: var(--text-faint);
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--border-soft);
-  margin-bottom: 18px;
-}
-
-.landing__live {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: var(--accent-2);
-}
-
-.landing__hero-readings {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-top: 20px;
-}
-
-.reading {
-  background: var(--bg-inset);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
-  padding: 11px 13px;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.reading__label {
   font-size: 11px;
-  color: var(--text-faint);
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
-
-.reading__value {
-  font-size: 17px;
-  font-weight: 600;
-}
-
-.reading__value em {
-  font-style: normal;
-  font-size: 11px;
   color: var(--text-faint);
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 18px;
 }
 
 /* ---------- Shared section headers ---------- */
@@ -283,7 +228,7 @@
 }
 
 .landing__history-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--bg-panel-raised);
 }
 
 .landing__history-role {
@@ -299,31 +244,15 @@
 /* ---------- CTA band ---------- */
 
 .landing__cta-band {
-  margin-top: 88px;
-  padding: 52px 48px;
+  margin-top: 72px;
+  padding: 44px 40px;
   text-align: center;
   border-radius: var(--radius-xl);
-  position: relative;
-  overflow: hidden;
-}
-
-.landing__cta-band::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 60% 90% at 50% -30%, rgba(99, 102, 241, 0.28), transparent),
-    radial-gradient(ellipse 40% 60% at 85% 120%, rgba(34, 211, 238, 0.12), transparent);
-  pointer-events: none;
-}
-
-.landing__cta-band > * {
-  position: relative;
 }
 
 .landing__cta-band h2 {
-  font-size: clamp(26px, 3.4vw, 34px);
-  margin-bottom: 10px;
+  font-size: clamp(24px, 3vw, 30px);
+  margin-bottom: 8px;
 }
 
 .landing__cta-band p {

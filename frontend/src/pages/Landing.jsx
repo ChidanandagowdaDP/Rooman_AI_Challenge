@@ -64,10 +64,7 @@ export default function Landing() {
       {/* ---------- Hero ---------- */}
       <section className="container landing__hero">
         <div className="landing__hero-copy">
-          <span className="badge badge--accent fade-up">
-            <span className="landing__pulse" aria-hidden="true" />
-            Adaptive interview engine · local LLM
-          </span>
+          <span className="badge badge--accent fade-up">Adaptive interview engine · local LLM</span>
           <h1 className="landing__title fade-up fade-up-1">
             An interviewer that recalibrates{" "}
             <em className="gradient-text">after every answer.</em>
@@ -96,15 +93,9 @@ export default function Landing() {
 
         <div className="landing__hero-card panel fade-up fade-up-2">
           <div className="landing__hero-card-head mono">
-            <span>DIFFICULTY CALIBRATION</span>
-            <span className="landing__live"><span className="landing__pulse landing__pulse--dot" /> LIVE</span>
+            <span>Difficulty calibration</span>
           </div>
           <DifficultyGauge difficulty="hard" lastAction="INCREASE_DIFFICULTY" />
-          <div className="landing__hero-readings">
-            <Reading label="Accuracy" value="8.5" />
-            <Reading label="Depth" value="9.0" />
-            <Reading label="Clarity" value="7.5" />
-          </div>
         </div>
       </section>
 
@@ -200,15 +191,6 @@ export default function Landing() {
         </div>
       </section>
     </main>
-  );
-}
-
-function Reading({ label, value }) {
-  return (
-    <div className="reading">
-      <span className="reading__label">{label}</span>
-      <span className="reading__value mono">{value}<em>/10</em></span>
-    </div>
   );
 }
 
