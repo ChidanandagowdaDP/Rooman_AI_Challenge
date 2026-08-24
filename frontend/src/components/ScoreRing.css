@@ -4,7 +4,7 @@
 }
 
 .score-ring__fill {
-  transition: stroke-dashoffset 900ms ease-out;
+  transition: stroke-dashoffset 1200ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .score-ring__center {
@@ -18,16 +18,19 @@
 }
 
 .score-ring__value {
-  font-size: 38px;
+  font-size: 40px;
   font-weight: 700;
   line-height: 1;
-  color: var(--text);
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .score-ring__label {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-faint);
 }

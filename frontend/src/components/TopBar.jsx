@@ -20,9 +20,15 @@ export default function TopBar() {
             <svg viewBox="0 0 24 24" fill="none">
               <path
                 d="M6 18V7.5h4a3.25 3.25 0 0 1 0 6.5H8.5V18H6Z"
-                fill="#4f46e5"
+                fill="url(#brand-grad)"
               />
-              <circle cx="16.4" cy="15.6" r="2.1" fill="#4f46e5" opacity="0.55" />
+              <circle cx="16.4" cy="15.6" r="2.1" fill="#22d3ee" />
+              <defs>
+                <linearGradient id="brand-grad" x1="6" y1="7" x2="12" y2="18">
+                  <stop stopColor="#818cf8" />
+                  <stop offset="1" stopColor="#22d3ee" />
+                </linearGradient>
+              </defs>
             </svg>
           </span>
           Interview<span className="topbar__brand-accent">AI</span>

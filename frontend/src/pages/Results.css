@@ -38,8 +38,11 @@
   display: flex;
   align-items: center;
   gap: 44px;
-  margin-top: 24px;
+  margin-top: 26px;
   border-radius: var(--radius-xl);
+  background-image:
+    radial-gradient(ellipse 50% 120% at 85% -20%, rgba(99, 102, 241, 0.14), transparent),
+    linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%), var(--bg-panel);
 }
 
 .results__sub-scores {

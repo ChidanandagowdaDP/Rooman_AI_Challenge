@@ -17,9 +17,13 @@ body,
 body {
   margin: 0;
   background: var(--bg);
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -10%, rgba(99, 102, 241, 0.13), transparent),
+    radial-gradient(ellipse 60% 40% at 90% 110%, rgba(34, 211, 238, 0.05), transparent);
+  background-attachment: fixed;
   color: var(--text);
   font-family: var(--font-body);
-  font-size: 15px;
+  font-size: 15.5px;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
 }
@@ -27,8 +31,8 @@ body {
 h1, h2, h3, h4 {
   font-family: var(--font-display);
   margin: 0;
-  line-height: 1.2;
-  letter-spacing: -0.015em;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
   color: var(--text);
 }
 
@@ -50,22 +54,22 @@ button {
 
 input, textarea, select {
   font-family: var(--font-body);
-  font-size: 14px;
+  font-size: 14.5px;
   color: var(--text);
-  background: #fff;
+  background: var(--bg-inset);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  transition: border-color 120ms ease, box-shadow 120ms ease;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
 }
 
 input:hover, textarea:hover, select:hover {
-  border-color: #d4d4d8;
+  border-color: #2b3648;
 }
 
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  box-shadow: 0 0 0 3px rgba(129, 140, 248, 0.18);
 }
 
 ::placeholder {
@@ -77,43 +81,55 @@ input:focus, textarea:focus, select:focus {
   outline-offset: 2px;
 }
 
+::selection {
+  background: rgba(99, 102, 241, 0.35);
+}
+
 /* ---------- Buttons ---------- */
 
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 10px 18px;
+  gap: 9px;
+  padding: 12px 22px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: #fff;
+  background: var(--bg-panel-raised);
   color: var(--text);
-  font-size: 14px;
+  font-size: 14.5px;
   font-weight: 600;
-  transition: border-color 120ms ease, background 120ms ease, opacity 120ms ease;
+  letter-spacing: 0.01em;
+  transition: transform 150ms ease, border-color 150ms ease,
+    background 150ms ease, box-shadow 150ms ease, opacity 150ms ease;
   white-space: nowrap;
 }
 
 .btn:hover {
-  border-color: #c7c7cd;
-  background: var(--bg-panel-raised);
+  border-color: #323e54;
+  background: #1a2131;
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .btn:disabled {
   opacity: 0.45;
   cursor: not-allowed;
+  transform: none;
 }
 
 .btn--primary {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--gradient);
+  border: none;
   color: #fff;
+  box-shadow: var(--glow-accent);
 }
 
 .btn--primary:hover {
-  background: var(--accent-strong);
-  border-color: var(--accent-strong);
+  filter: brightness(1.12);
+  box-shadow: 0 0 48px -8px rgba(99, 102, 241, 0.55);
 }
 
 .btn--ghost {
@@ -125,11 +141,12 @@ input:focus, textarea:focus, select:focus {
 .btn--ghost:hover {
   color: var(--text);
   background: var(--bg-panel-raised);
+  border-color: transparent;
 }
 
 .btn--danger {
   background: transparent;
-  border-color: rgba(220, 38, 38, 0.35);
+  border-color: rgba(248, 113, 113, 0.35);
   color: var(--bad);
 }
 
@@ -139,21 +156,22 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn--sm {
-  padding: 7px 13px;
+  padding: 8px 14px;
   font-size: 13px;
+  border-radius: var(--radius-sm);
 }
 
 /* ---------- Surfaces ---------- */
 
 .panel {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%), var(--bg-panel);
+  border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
 }
 
 .panel--pad {
-  padding: 26px;
+  padding: 28px;
 }
 
 /* ---------- Bits ---------- */
@@ -166,41 +184,63 @@ input:focus, textarea:focus, select:focus {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 4px 10px;
+  gap: 7px;
+  padding: 5px 12px;
   border-radius: 999px;
   font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
-.badge--accent { background: var(--accent-soft); color: var(--accent-strong); }
-.badge--good   { background: var(--good-soft);  color: var(--good); }
-.badge--bad    { background: var(--bad-soft);   color: var(--bad); }
-.badge--warn   { background: var(--warn-soft);  color: var(--warn); }
+.badge--accent {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  border: 1px solid rgba(129, 140, 248, 0.25);
+}
+
+.badge--good {
+  background: var(--good-soft);
+  color: var(--good);
+  border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+.badge--bad {
+  background: var(--bad-soft);
+  color: var(--bad);
+  border: 1px solid rgba(248, 113, 113, 0.25);
+}
+
+.badge--warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
 
 .error-banner {
   display: flex;
   align-items: center;
   gap: 10px;
   background: var(--bad-soft);
-  border: 1px solid rgba(220, 38, 38, 0.3);
-  color: #991b1b;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  color: #fecaca;
   border-radius: var(--radius-sm);
-  padding: 11px 15px;
+  padding: 12px 16px;
   font-size: 13.5px;
 }
 
 .gradient-text {
-  color: var(--accent);
+  background: var(--gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 .spinner {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(0, 0, 0, 0.12);
+  border: 2px solid rgba(255, 255, 255, 0.25);
   border-top-color: currentColor;
   animation: spin 700ms linear infinite;
 }
@@ -214,9 +254,9 @@ input:focus, textarea:focus, select:focus {
   align-items: center;
   gap: 12px;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 11.5px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--text-faint);
 }
@@ -225,7 +265,7 @@ input:focus, textarea:focus, select:focus {
   content: "";
   height: 1px;
   flex: 1;
-  background: var(--border);
+  background: linear-gradient(90deg, var(--border), transparent);
 }
 
 /* ---------- Layout ---------- */
@@ -242,25 +282,34 @@ input:focus, textarea:focus, select:focus {
 
 .container {
   width: 100%;
-  max-width: 1040px;
+  max-width: 1080px;
   margin: 0 auto;
-  padding: 0 24px;
+  padding: 0 28px;
+}
+
+.container--narrow {
+  max-width: 880px;
 }
 
 @media (max-width: 640px) {
-  .container { padding: 0 16px; }
+  .container { padding: 0 18px; }
 }
 
 /* ---------- Motion ---------- */
 
 @keyframes fade-up {
-  from { opacity: 0; transform: translateY(8px); }
+  from { opacity: 0; transform: translateY(14px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 .fade-up {
-  animation: fade-up 350ms ease both;
+  animation: fade-up 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
+
+.fade-up-1 { animation-delay: 60ms; }
+.fade-up-2 { animation-delay: 140ms; }
+.fade-up-3 { animation-delay: 220ms; }
+.fade-up-4 { animation-delay: 300ms; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
