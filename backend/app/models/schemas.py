@@ -105,6 +105,9 @@ class QuestionOut(BaseModel):
     is_coding: bool = False
     language: Optional[str] = None
     starter_code: Optional[str] = None
+    # Unix epoch seconds when this question became current — lets the UI
+    # restore the per-question timer after a refresh.
+    started_at: Optional[int] = None
 
 
 class StartInterviewResponse(BaseModel):
@@ -180,6 +183,38 @@ class SubmitAnswerResponse(BaseModel):
     total: int
 
 
+# ---------- Code execution ----------
+
+class RunCodeRequest(BaseModel):
+    language: str = Field(..., min_length=1, max_length=30)
+    code: str = Field(..., min_length=1, max_length=20000)
+
+    @field_validator("language")
+    @classmethod
+    def clean_language(cls, v: str) -> str:
+        cleaned = clean_single_line(v, 30)
+        if not cleaned:
+            raise ValueError("Language is required")
+        return cleaned.lower()
+
+    @field_validator("code")
+    @classmethod
+    def clean_code(cls, v: str) -> str:
+        cleaned = clean_multiline(v, 20000)
+        if not cleaned:
+            raise ValueError("Code must contain visible text")
+        return cleaned
+
+
+class RunCodeOut(BaseModel):
+    supported: bool
+    exit_code: Optional[int] = None
+    stdout: str = ""
+    stderr: str = ""
+    timed_out: bool = False
+    message: Optional[str] = None
+
+
 # ---------- Final report ----------
 
 class TopicScore(BaseModel):
@@ -223,6 +258,7 @@ class InternalQuestion(BaseModel):
     is_coding: bool = False
     language: Optional[str] = None
     starter_code: Optional[str] = None
+    started_at: Optional[int] = None
 
 
 class InternalEvaluation(BaseModel):

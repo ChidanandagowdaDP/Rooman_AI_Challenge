@@ -148,11 +148,17 @@ export default function Interview() {
     };
   }, [sessionId, location.state, navigate]);
 
-  /* ----- Reset per-question timer whenever the question changes ----- */
+  /* ----- Reset per-question timer whenever the question changes.
+     The start time comes from the server, so a refresh mid-question
+     restores the true elapsed time instead of restarting at 0. ----- */
   useEffect(() => {
     if (!question || phase !== "answering") return;
-    questionStartRef.current = Date.now();
-    setElapsed(0);
+    const startMs =
+      question.started_at != null
+        ? question.started_at * 1000
+        : Date.now();
+    questionStartRef.current = startMs;
+    setElapsed(Math.max(0, Math.floor((Date.now() - startMs) / 1000)));
     const id = setInterval(() => {
       setElapsed(Math.floor((Date.now() - questionStartRef.current) / 1000));
     }, 1000);

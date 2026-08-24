@@ -7,6 +7,7 @@ difficulty, topic history) is owned and mutated here in plain Python. The
 LLM never tracks state across calls — every prompt is built fresh from the
 state this module maintains. See README "Design Decisions" for why.
 """
+import time
 import uuid
 
 from app.agents import adaptive_controller, evaluator, interviewer
@@ -69,7 +70,8 @@ def create_session(
         "include_coding": bool(include_coding),
         "current_difficulty": difficulty.value,
         "num_questions": num_questions,
-        "current_question": first_question | {"difficulty": difficulty.value},
+        "current_question": first_question
+        | {"difficulty": difficulty.value, "started_at": int(time.time())},
         "questions_asked": [],
         "evaluations": [],
         "completed": False,
@@ -189,7 +191,10 @@ def submit_answer(
             total_questions=state["num_questions"],
             include_coding=state.get("include_coding", False),
         )
-        state["current_question"] = next_question | {"difficulty": next_difficulty.value}
+        state["current_question"] = next_question | {
+            "difficulty": next_difficulty.value,
+            "started_at": int(time.time()),
+        }
     else:
         state["completed"] = True
         state["current_question"] = None
@@ -322,7 +327,10 @@ def submit_answer_stream(
             # Stream failed or returned unparseable text — authoritative retry.
             next_question = interviewer.generate_question(**gen_kwargs)
 
-        state["current_question"] = next_question | {"difficulty": next_difficulty.value}
+        state["current_question"] = next_question | {
+            "difficulty": next_difficulty.value,
+            "started_at": int(time.time()),
+        }
         save_session(session_id, state)
 
         yield {"type": "next_question", "next_question": next_question}

@@ -177,6 +177,7 @@ def start_interview(
             is_coding=bool(q.get("is_coding")),
             language=q.get("language"),
             starter_code=q.get("starter_code"),
+            started_at=q.get("started_at"),
         ),
     )
 
@@ -217,6 +218,7 @@ def submit_answer(
             is_coding=bool(nq.get("is_coding")),
             language=nq.get("language"),
             starter_code=nq.get("starter_code"),
+            started_at=nq.get("started_at"),
         )
 
     return SubmitAnswerResponse(
