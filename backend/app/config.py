@@ -25,6 +25,9 @@ class Settings:
     ENV: str = os.getenv("ENV", "development")
     # Signs auth tokens. Generate a stable random value for real deployments.
     SECRET_KEY: str = os.getenv("SECRET_KEY", os.urandom(32).hex())
+    # Requests per minute per user/IP, per scope.
+    RATE_LIMIT_AUTH_PER_MIN: int = int(os.getenv("RATE_LIMIT_AUTH_PER_MIN", "30"))
+    RATE_LIMIT_API_PER_MIN: int = int(os.getenv("RATE_LIMIT_API_PER_MIN", "60"))
 
     def validate(self) -> None:
         if not self.LLM_BASE_URL:

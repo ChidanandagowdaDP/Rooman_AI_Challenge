@@ -8,6 +8,8 @@ from enum import Enum
 from typing import Optional
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.sanitize import clean_multiline, clean_skills, clean_single_line
+
 
 class InterviewType(str, Enum):
     TECHNICAL = "technical"
@@ -60,10 +62,26 @@ class StartInterviewRequest(BaseModel):
     difficulty: Difficulty = Difficulty.MEDIUM
     num_questions: int = Field(default=7, ge=5, le=10)
 
+    @field_validator("role")
+    @classmethod
+    def clean_role(cls, v: str) -> str:
+        cleaned = clean_single_line(v, 120)
+        if len(cleaned) < 2:
+            raise ValueError("Role must contain at least 2 visible characters")
+        return cleaned
+
+    @field_validator("experience")
+    @classmethod
+    def clean_experience(cls, v: str) -> str:
+        cleaned = clean_single_line(v, 60)
+        if len(cleaned) < 2:
+            raise ValueError("Experience level must contain at least 2 visible characters")
+        return cleaned
+
     @field_validator("skills")
     @classmethod
-    def clean_skills(cls, v: list[str]) -> list[str]:
-        cleaned = [s.strip() for s in v if s.strip()]
+    def clean_skills_field(cls, v: list[str]) -> list[str]:
+        cleaned = clean_skills(v, max_items=15, max_length_each=40)
         if not cleaned:
             raise ValueError("At least one skill is required")
         return cleaned
@@ -107,6 +125,14 @@ class SessionDetailOut(SessionSummaryOut):
 class SubmitAnswerRequest(BaseModel):
     question_id: str
     answer_text: str = Field(..., min_length=1, max_length=8000)
+
+    @field_validator("answer_text")
+    @classmethod
+    def clean_answer(cls, v: str) -> str:
+        cleaned = clean_multiline(v, 8000)
+        if not cleaned:
+            raise ValueError("Answer must contain visible text")
+        return cleaned
 
 
 class EvaluationOut(BaseModel):

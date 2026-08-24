@@ -11,11 +11,12 @@ import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 
 from app import auth as auth_service
 from app.config import settings
 from app.db import create_user, get_user_by_email, init_db
+from app.rate_limit import RateLimitExceeded, check_rate_limit
 from app.models.schemas import (
     FinalReportOut,
     LoginRequest,
@@ -51,6 +52,23 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def rate_limit_middleware(request, call_next):
+    """Per-user/IP sliding-window limits; tighter on auth endpoints."""
+    path = request.url.path
+    if path.startswith("/api/") and not path.startswith("/api/health"):
+        scope = "auth" if path.startswith("/api/auth") else "api"
+        try:
+            check_rate_limit(request, scope)
+        except RateLimitExceeded as exc:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Too many requests. Please slow down."},
+                headers={"Retry-After": str(exc.retry_after)},
+            )
+    return await call_next(request)
 
 
 @app.on_event("startup")
