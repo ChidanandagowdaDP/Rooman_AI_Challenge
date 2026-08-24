@@ -10,13 +10,8 @@
     "lint": "eslint src --ext js,jsx"
   },
   "dependencies": {
-    "@codemirror/lang-cpp": "^6.0.3",
-    "@codemirror/lang-go": "^6.0.1",
-    "@codemirror/lang-java": "^6.0.2",
     "@codemirror/lang-javascript": "^6.2.5",
     "@codemirror/lang-python": "^6.2.1",
-    "@codemirror/lang-rust": "^6.0.2",
-    "@codemirror/lang-sql": "^6.10.0",
     "@uiw/react-codemirror": "^4.25.11",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

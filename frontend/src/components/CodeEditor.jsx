@@ -2,11 +2,6 @@ import { useEffect, useState } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { python } from "@codemirror/lang-python";
 import { javascript } from "@codemirror/lang-javascript";
-import { java } from "@codemirror/lang-java";
-import { cpp } from "@codemirror/lang-cpp";
-import { sql } from "@codemirror/lang-sql";
-import { go } from "@codemirror/lang-go";
-import { rust } from "@codemirror/lang-rust";
 import { getTheme } from "../theme.js";
 import "./CodeEditor.css";
 
@@ -16,19 +11,6 @@ function extensionFor(languageId) {
       return [python()];
     case "javascript":
       return [javascript()];
-    case "typescript":
-      return [javascript({ typescript: true })];
-    case "java":
-      return [java()];
-    case "c":
-    case "cpp":
-      return [cpp()];
-    case "go":
-      return [go()];
-    case "rust":
-      return [rust()];
-    case "sql":
-      return [sql()];
     default:
       return [];
   }

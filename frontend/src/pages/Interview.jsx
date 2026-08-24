@@ -5,6 +5,7 @@ import DimensionScores from "../components/DimensionScores.jsx";
 import {
   CODE_LANGUAGES,
   normalizeLanguage,
+  templateFor,
 } from "../components/codeLanguages.js";
 import { api, API_URL, ApiError, getToken } from "../api/client.js";
 import {
@@ -37,19 +38,69 @@ export default function Interview() {
   const textareaRef = useRef(null);
   const questionStartRef = useRef(Date.now());
 
-  /* ----- Coding challenges: language selector + starter-code prefill ----- */
+  /* ----- Coding challenges: per-language buffers, language selector, runner ----- */
   const isCoding = Boolean(question?.is_coding);
+  const [runnableLangs, setRunnableLangs] = useState(["python", "javascript"]);
   const [codeLang, setCodeLang] = useState("python");
+  // One scratch buffer per language so switching languages keeps each
+  // solution and seeds untouched ones with idiomatic boilerplate.
+  const [codeBuffers, setCodeBuffers] = useState({});
+  const [runResult, setRunResult] = useState(null);
+  const [runBusy, setRunBusy] = useState(false);
+
+  // Ask the backend which languages it can actually run on this machine.
+  const runnableRef = useRef(runnableLangs);
+  useEffect(() => {
+    api
+      .runCodeLanguages()
+      .then((res) => {
+        if (Array.isArray(res.languages) && res.languages.length) {
+          setRunnableLangs(res.languages);
+          runnableRef.current = res.languages;
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!question?.id || !question.is_coding) return;
-    setAnswer((prev) =>
-      prev.trim() ? prev : question.starter_code || ""
-    );
     const suggested = normalizeLanguage(question.language);
-    const known = CODE_LANGUAGES.some((l) => l.id === suggested);
-    setCodeLang(known ? suggested : "python");
+    const runnable = CODE_LANGUAGES.some(
+      (l) => l.id === suggested && runnableRef.current.includes(l.id)
+    );
+    const initial = runnable ? suggested : "python";
+    setCodeLang(initial);
+    setCodeBuffers({
+      [initial]: question.starter_code || templateFor(initial),
+    });
+    setRunResult(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [question?.id]);
+
+  function switchCodeLang(next) {
+    setCodeLang((prev) => {
+      if (next !== prev) setRunResult(null);
+      return next;
+    });
+  }
+  function updateCurrentBuffer(value) {
+    setCodeBuffers((prev) => ({ ...prev, [codeLang]: value }));
+  }
+  async function handleRun() {
+    if (runBusy || phase !== "answering") return;
+    setRunBusy(true);
+    setError(null);
+    try {
+      setRunResult(await api.runCode({ language: codeLang, code: currentCode }));
+    } catch (err) {
+      setRunResult({
+        supported: false,
+        message: err instanceof ApiError ? err.message : "Could not reach the runner.",
+      });
+    } finally {
+      setRunBusy(false);
+    }
+  }
 
   /* ----- Voice mode (browser-native STT/TTS) ----- */
   const appendTranscript = useCallback((text) => {
@@ -121,8 +172,11 @@ export default function Interview() {
     }
   }, [phase, stopListening, stopSpeaking]);
 
-  const wordCount = answer.trim() ? answer.trim().split(/\s+/).length : 0;
-  const lineCount = answer ? answer.split("\n").length : 0;
+  const currentCode = codeBuffers[codeLang] ?? templateFor(codeLang);
+  const answerText = isCoding ? currentCode : answer;
+
+  const wordCount = answerText.trim() ? answerText.trim().split(/\s+/).length : 0;
+  const lineCount = answerText ? answerText.split("\n").length : 0;
 
   function applyEvaluation(result) {
     setEvaluation(result.evaluation);
@@ -143,7 +197,7 @@ export default function Interview() {
         },
         body: JSON.stringify({
           question_id: question.id,
-          answer_text: answer,
+          answer_text: answerText,
           ...(isCoding ? { code_language: codeLang } : {}),
         }),
       }
@@ -204,7 +258,7 @@ export default function Interview() {
   async function submitClassic() {
     const result = await api.submitAnswer(sessionId, {
       question_id: question.id,
-      answer_text: answer,
+      answer_text: answerText,
       ...(isCoding ? { code_language: codeLang } : {}),
     });
     applyEvaluation(result);
@@ -222,8 +276,11 @@ export default function Interview() {
   async function handleSubmit(e) {
     e?.preventDefault();
     if (["evaluating", "generating", "finishing"].includes(phase)) return;
-    if (!answer.trim()) {
-      setError("Write an answer before submitting.");
+    if (!answerText.trim()) {
+      setError(isCoding
+        ? "Write or run your solution before submitting."
+        : "Write an answer before submitting."
+      );
       return;
     }
     setError(null);
@@ -372,30 +429,89 @@ export default function Interview() {
                     <div className="interview__code">
                       <div className="interview__code-head">
                         <span className="section-label">Your solution</span>
-                        <label className="interview__code-lang">
-                          Language
-                          <select
-                            value={codeLang}
-                            onChange={(e) => setCodeLang(e.target.value)}
-                            disabled={phase === "evaluating"}
+                        <div className="interview__code-tools">
+                          <label className="interview__code-lang">
+                            Language
+                            <select
+                              value={runnableLangs.includes(codeLang) ? codeLang : "python"}
+                              onChange={(e) => switchCodeLang(e.target.value)}
+                              disabled={phase === "evaluating"}
+                            >
+                              {CODE_LANGUAGES.filter((l) => runnableLangs.includes(l.id)).map(
+                                (l) => (
+                                  <option key={l.id} value={l.id}>
+                                    {l.label}
+                                  </option>
+                                )
+                              )}
+                            </select>
+                          </label>
+                          <button
+                            type="button"
+                            className="btn btn--ghost btn--sm interview__run"
+                            onClick={handleRun}
+                            disabled={phase !== "answering" || runBusy}
+                            title="Run this code locally"
                           >
-                            {CODE_LANGUAGES.map((l) => (
-                              <option key={l.id} value={l.id}>
-                                {l.label}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
+                            {runBusy ? (
+                              <>
+                                <span className="spinner" /> Running…
+                              </>
+                            ) : (
+                              <>
+                                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M8 5.5v13l11-6.5-11-6.5Z" />
+                                </svg>
+                                Run
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                       <Suspense fallback={<span className="spinner" />}>
                         <CodeEditor
-                          value={answer}
-                          onChange={setAnswer}
+                          value={currentCode}
+                          onChange={updateCurrentBuffer}
                           language={codeLang}
                           readOnly={phase === "evaluating"}
                           placeholder="// Write your solution here…"
                         />
                       </Suspense>
+                      {runResult && (
+                        <div
+                          className={`interview__output mono ${
+                            runResult.timed_out || (runResult.exit_code ?? 1) !== 0
+                              ? "interview__output--bad"
+                              : "interview__output--good"
+                          }`}
+                        >
+                          <div className="interview__output-head">
+                            <span>Output</span>
+                            {runResult.supported && !runResult.timed_out && (
+                              <span
+                                className={`badge badge--${
+                                  runResult.exit_code === 0 ? "good" : "bad"
+                                }`}
+                              >
+                                exit {runResult.exit_code}
+                              </span>
+                            )}
+                            {runResult.timed_out && (
+                              <span className="badge badge--bad">timed out</span>
+                            )}
+                          </div>
+                          {runResult.message && (
+                            <p className="interview__output-msg">{runResult.message}</p>
+                          )}
+                          {runResult.stdout && <pre>{runResult.stdout}</pre>}
+                          {runResult.stderr && (
+                            <pre className="interview__output-stderr">{runResult.stderr}</pre>
+                          )}
+                          {!runResult.stdout && !runResult.stderr && !runResult.message && (
+                            <p className="interview__output-msg">(no output)</p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <textarea

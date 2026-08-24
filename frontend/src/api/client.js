@@ -108,6 +108,14 @@ export const api = {
 
   getReport: (sessionId) => request(`/api/interviews/${sessionId}/report`),
 
+  runCode: (payload) =>
+    request("/api/run-code", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  runCodeLanguages: () => request("/api/run-code/languages"),
+
   async downloadReportPdf(sessionId) {
     let response;
     try {

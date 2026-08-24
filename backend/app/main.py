@@ -24,6 +24,8 @@ from app.models.schemas import (
     QuestionOut,
     QuestionRecord,
     RegisterRequest,
+    RunCodeOut,
+    RunCodeRequest,
     SessionDetailOut,
     SessionSummaryOut,
     StartInterviewRequest,
@@ -34,7 +36,7 @@ from app.models.schemas import (
     TopicScore,
     UserOut,
 )
-from app.services import session_service
+from app.services import code_runner, session_service
 from app.services.llm_service import LLMJSONError
 
 logging.basicConfig(level=logging.INFO)
@@ -329,3 +331,17 @@ def download_report_pdf(session_id: str, user: UserOut = Depends(require_user)) 
             "Content-Disposition": f'attachment; filename="interview-report-{session_id[:12]}.pdf"'
         },
     )
+
+
+@app.post("/api/run-code", response_model=RunCodeOut)
+def run_code(
+    payload: RunCodeRequest, user: UserOut = Depends(require_user)
+) -> RunCodeOut:
+    """Execute a coding-challenge answer locally (Python/Node) with a timeout."""
+    return RunCodeOut(**code_runner.run_code(payload.language, payload.code))
+
+
+@app.get("/api/run-code/languages")
+def list_runnable_languages(user: UserOut = Depends(require_user)) -> dict:
+    """Languages the local runner can actually execute on this machine."""
+    return {"languages": code_runner.supported_languages()}

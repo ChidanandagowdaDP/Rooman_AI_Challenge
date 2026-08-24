@@ -1,14 +1,7 @@
+// Only languages the local runner can execute (backend /api/run-code/languages).
 export const CODE_LANGUAGES = [
   { id: "python", label: "Python" },
   { id: "javascript", label: "JavaScript" },
-  { id: "typescript", label: "TypeScript" },
-  { id: "java", label: "Java" },
-  { id: "c", label: "C" },
-  { id: "cpp", label: "C++" },
-  { id: "go", label: "Go" },
-  { id: "rust", label: "Rust" },
-  { id: "sql", label: "SQL" },
-  { id: "text", label: "Plain text" },
 ];
 
 const ALIASES = {
@@ -16,13 +9,6 @@ const ALIASES = {
   python3: "python",
   js: "javascript",
   node: "javascript",
-  ts: "typescript",
-  "c++": "cpp",
-  cplusplus: "cpp",
-  golang: "go",
-  postgresql: "sql",
-  mysql: "sql",
-  sqlite: "sql",
 };
 
 export function normalizeLanguage(raw) {
@@ -31,4 +17,15 @@ export function normalizeLanguage(raw) {
     .toLowerCase();
   if (!id) return null;
   return ALIASES[id] || id;
+}
+
+// Idiomatic starting point shown whenever a language has no code yet —
+// switching languages swaps in the right boilerplate automatically.
+const STARTER_TEMPLATES = {
+  python: "def solution():\n    # TODO: implement\n    pass\n",
+  javascript: "function solution() {\n  // TODO: implement\n}\n",
+};
+
+export function templateFor(languageId) {
+  return STARTER_TEMPLATES[languageId] ?? "";
 }

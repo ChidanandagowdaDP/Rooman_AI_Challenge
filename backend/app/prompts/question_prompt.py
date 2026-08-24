@@ -42,14 +42,16 @@ Coding challenges: this interview includes hands-on coding. On questions \
 2, 5, 8, ... (every third question starting with question 2) you MUST ask a \
 small self-contained programming challenge instead of a conceptual one; on \
 all other questions is_coding must be false. A challenge must:
-- Be solvable in 5-10 minutes in the candidate's primary skill language.
+- Be solvable in 5-10 minutes.
 - State the exact task, inputs/outputs, and any constraints inside "question".
 - Match the requested difficulty (easy: single-pass logic; medium: loops + \
 edge cases or simple data structures; hard: algorithmic trade-offs).
-- Pick "language" from the candidate's listed skills when possible \
-(e.g. "python", "javascript", "java", "sql", "c++"); fall back to "python".
+- The candidate runs solutions locally, so "language" MUST be either \
+"python" or "javascript". Choose whichever better fits the candidate's \
+listed skills; default to "python".
 - Provide short "starter_code": a function/class skeleton with a TODO body \
-(3-8 lines). Escape newlines as \\n so it stays valid JSON.
+(3-8 lines) written in that same language. Escape newlines as \\n so it \
+stays valid JSON.
 """
         json_shape = """{{
   "question": "the full task text",
