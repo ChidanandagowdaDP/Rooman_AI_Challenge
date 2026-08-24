@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from enum import Enum
 from typing import Optional
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 class InterviewType(str, Enum):
@@ -26,6 +26,28 @@ class AdaptiveAction(str, Enum):
     MAINTAIN_DIFFICULTY = "MAINTAIN_DIFFICULTY"
     DECREASE_DIFFICULTY = "DECREASE_DIFFICULTY"
     TARGET_WEAK_TOPIC = "TARGET_WEAK_TOPIC"
+
+
+# ---------- Auth ----------
+
+class RegisterRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8, max_length=128)
+
+
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserOut(BaseModel):
+    id: str
+    email: str
+
+
+class TokenOut(BaseModel):
+    token: str
+    user: UserOut
 
 
 # ---------- Setup / start interview ----------

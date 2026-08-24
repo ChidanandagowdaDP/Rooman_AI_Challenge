@@ -5,6 +5,7 @@ mixed candidate whose weak topic should get specifically targeted.
 """
 import itertools
 import json
+import uuid
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +21,17 @@ client = TestClient(app)
 def _fresh_db():
     init_db()
     yield
+
+
+def _register_and_login():
+    """Create a fresh user; return auth headers for API calls."""
+    email = f"{uuid.uuid4().hex[:12]}@example.com"
+    resp = client.post(
+        "/api/auth/register", json={"email": email, "password": "s3cret-pass!"}
+    )
+    assert resp.status_code == 200
+    token = resp.json()["token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 def _question_response(topic="Python Basics"):
@@ -60,18 +72,78 @@ def _start_payload():
 @patch("app.agents.interviewer.call_json")
 def test_start_interview_returns_first_question(mock_call_json):
     mock_call_json.return_value = _question_response()
-    resp = client.post("/api/interviews", json=_start_payload())
+    resp = client.post("/api/interviews", json=_start_payload(), headers=_register_and_login())
     assert resp.status_code == 200
     body = resp.json()
     assert body["first_question"]["index"] == 1
     assert body["first_question"]["total"] == 5
 
 
+def test_endpoints_require_auth():
+    assert client.get("/api/interviews").status_code == 401
+    assert client.post("/api/interviews", json=_start_payload()).status_code == 401
+    assert (
+        client.post(
+            "/api/interviews/abc/answers",
+            json={"question_id": "q", "answer_text": "x"},
+        ).status_code
+        == 401
+    )
+    assert client.get("/api/interviews/abc/report").status_code == 401
+
+
+def test_register_login_and_me():
+    email = f"{uuid.uuid4().hex[:12]}@example.com"
+    reg = client.post(
+        "/api/auth/register", json={"email": email, "password": "s3cret-pass!"}
+    )
+    assert reg.status_code == 200
+    token = reg.json()["token"]
+    assert reg.json()["user"]["email"] == email
+
+    dup = client.post(
+        "/api/auth/register", json={"email": email, "password": "s3cret-pass!"}
+    )
+    assert dup.status_code == 409
+
+    bad = client.post(
+        "/api/auth/login", json={"email": email, "password": "wrong-password"}
+    )
+    assert bad.status_code == 401
+
+    login = client.post(
+        "/api/auth/login", json={"email": email, "password": "s3cret-pass!"}
+    )
+    assert login.status_code == 200
+
+    me = client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+    assert me.status_code == 200
+    assert me.json()["email"] == email
+
+
+def test_sessions_are_scoped_to_owner():
+    owner_headers = _register_and_login()
+    other_headers = _register_and_login()
+
+    with patch("app.agents.interviewer.call_json") as mock_call_json:
+        mock_call_json.return_value = _question_response()
+        created = client.post(
+            "/api/interviews", json=_start_payload(), headers=owner_headers
+        ).json()
+
+    session_id = created["session_id"]
+    assert client.get(f"/api/interviews/{session_id}", headers=other_headers).status_code == 404
+    assert client.get(f"/api/interviews/{session_id}/report", headers=other_headers).status_code == 404
+    listing = client.get("/api/interviews", headers=other_headers).json()
+    assert session_id not in [s["session_id"] for s in listing]
+
+
 @patch("app.agents.evaluator.call_json")
 @patch("app.agents.interviewer.call_json")
 def test_strong_candidate_increases_difficulty(mock_question, mock_eval):
     mock_question.return_value = _question_response()
-    start = client.post("/api/interviews", json=_start_payload()).json()
+    headers = _register_and_login()
+    start = client.post("/api/interviews", json=_start_payload(), headers=headers).json()
     session_id = start["session_id"]
     question_id = start["first_question"]["id"]
 
@@ -81,6 +153,7 @@ def test_strong_candidate_increases_difficulty(mock_question, mock_eval):
     resp = client.post(
         f"/api/interviews/{session_id}/answers",
         json={"question_id": question_id, "answer_text": "A thorough, correct answer."},
+        headers=headers,
     )
     assert resp.status_code == 200
     body = resp.json()
@@ -92,7 +165,8 @@ def test_strong_candidate_increases_difficulty(mock_question, mock_eval):
 @patch("app.agents.interviewer.call_json")
 def test_weak_candidate_decreases_difficulty(mock_question, mock_eval):
     mock_question.return_value = _question_response("SQL")
-    start = client.post("/api/interviews", json=_start_payload()).json()
+    headers = _register_and_login()
+    start = client.post("/api/interviews", json=_start_payload(), headers=headers).json()
     session_id = start["session_id"]
     question_id = start["first_question"]["id"]
 
@@ -102,6 +176,7 @@ def test_weak_candidate_decreases_difficulty(mock_question, mock_eval):
     resp = client.post(
         f"/api/interviews/{session_id}/answers",
         json={"question_id": question_id, "answer_text": "A weak, vague answer."},
+        headers=headers,
     )
     body = resp.json()
     assert body["adaptive_action"] in ("DECREASE_DIFFICULTY", "TARGET_WEAK_TOPIC")
@@ -119,7 +194,8 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
     mock_question.side_effect = [_question_response(next(topics)) for _ in range(6)]
 
     payload = _start_payload()
-    start = client.post("/api/interviews", json=payload).json()
+    headers = _register_and_login()
+    start = client.post("/api/interviews", json=payload, headers=headers).json()
     session_id = start["session_id"]
     question_id = start["first_question"]["id"]
 
@@ -137,6 +213,7 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
         resp = client.post(
             f"/api/interviews/{session_id}/answers",
             json={"question_id": question_id, "answer_text": "An answer."},
+            headers=headers,
         )
         last_body = resp.json()
         if last_body["next_question"]:
@@ -145,7 +222,9 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
     assert last_body["is_complete"] is True
 
     mock_report.return_value = _report_response()
-    report_resp = client.get(f"/api/interviews/{session_id}/report")
+    report_resp = client.get(
+        f"/api/interviews/{session_id}/report", headers=headers
+    )
     assert report_resp.status_code == 200
     report = report_resp.json()
     assert report["overall_score"] > 0
@@ -157,8 +236,11 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
 @patch("app.agents.interviewer.call_json")
 def test_list_interviews_returns_summaries(mock_call_json):
     mock_call_json.return_value = _question_response()
-    created = client.post("/api/interviews", json=_start_payload()).json()
-    resp = client.get("/api/interviews")
+    headers = _register_and_login()
+    created = client.post(
+        "/api/interviews", json=_start_payload(), headers=headers
+    ).json()
+    resp = client.get("/api/interviews", headers=headers)
     assert resp.status_code == 200
     sessions = resp.json()
     summary = next(s for s in sessions if s["session_id"] == created["session_id"])
@@ -170,9 +252,12 @@ def test_list_interviews_returns_summaries(mock_call_json):
 @patch("app.agents.interviewer.call_json")
 def test_get_interview_detail_includes_current_question(mock_call_json):
     mock_call_json.return_value = _question_response()
-    created = client.post("/api/interviews", json=_start_payload()).json()
+    headers = _register_and_login()
+    created = client.post(
+        "/api/interviews", json=_start_payload(), headers=headers
+    ).json()
 
-    resp = client.get(f"/api/interviews/{created['session_id']}")
+    resp = client.get(f"/api/interviews/{created['session_id']}", headers=headers)
     assert resp.status_code == 200
     detail = resp.json()
     assert detail["answered"] == 0
@@ -182,7 +267,7 @@ def test_get_interview_detail_includes_current_question(mock_call_json):
     assert q["index"] == 1
     assert q["total"] == 5
 
-    missing = client.get("/api/interviews/does-not-exist")
+    missing = client.get("/api/interviews/does-not-exist", headers=headers)
     assert missing.status_code == 404
 
 
@@ -196,7 +281,8 @@ def test_stream_submit_answer_emits_events(mock_gen, mock_eval, mock_stream):
         "topic": "Python",
         "index": 1,
     }
-    start = client.post("/api/interviews", json=_start_payload()).json()
+    headers = _register_and_login()
+    start = client.post("/api/interviews", json=_start_payload(), headers=headers).json()
     session_id = start["session_id"]
     question_id = start["first_question"]["id"]
 
@@ -214,6 +300,7 @@ def test_stream_submit_answer_emits_events(mock_gen, mock_eval, mock_stream):
         "POST",
         f"/api/interviews/{session_id}/answers/stream",
         json={"question_id": question_id, "answer_text": "A strong answer."},
+        headers=headers,
     ) as resp:
         assert resp.status_code == 200
         events = []

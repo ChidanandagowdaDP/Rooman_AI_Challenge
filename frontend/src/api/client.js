@@ -2,6 +2,9 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
 export { API_URL };
 
+const TOKEN_KEY = "ia_token";
+const USER_KEY = "ia_user";
+
 class ApiError extends Error {
   constructor(message, status) {
     super(message);
@@ -9,18 +12,53 @@ class ApiError extends Error {
   }
 }
 
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getStoredUser() {
+  try {
+    const raw = localStorage.getItem(USER_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeSession(token, user) {
+  localStorage.setItem(TOKEN_KEY, token);
+  localStorage.setItem(USER_KEY, JSON.stringify(user));
+}
+
+export function clearSession() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
+}
+
+function authHeaders(extra = {}) {
+  const token = getToken();
+  return token
+    ? { Authorization: `Bearer ${token}`, ...extra }
+    : extra;
+}
+
 async function request(path, options = {}) {
   let response;
   try {
     response = await fetch(`${API_URL}${path}`, {
-      headers: { "Content-Type": "application/json" },
       ...options,
+      headers: { "Content-Type": "application/json", ...authHeaders(options.headers) },
     });
   } catch {
     throw new ApiError(
       "Could not reach the InterviewAI server. Confirm the backend is running.",
       0
     );
+  }
+
+  if (response.status === 401 && getToken()) {
+    // Token expired/invalid — drop it so the next navigation hits the login page.
+    clearSession();
   }
 
   if (!response.ok) {
@@ -38,6 +76,20 @@ async function request(path, options = {}) {
 }
 
 export const api = {
+  register: (payload) =>
+    request("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  login: (payload) =>
+    request("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+
+  me: () => request("/api/auth/me"),
+
   startInterview: (payload) =>
     request("/api/interviews", {
       method: "POST",

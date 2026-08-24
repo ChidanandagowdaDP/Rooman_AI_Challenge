@@ -23,6 +23,8 @@ class Settings:
     CORS_ORIGINS: list[str] = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
     MAX_LLM_RETRIES: int = int(os.getenv("MAX_LLM_RETRIES", "3"))
     ENV: str = os.getenv("ENV", "development")
+    # Signs auth tokens. Generate a stable random value for real deployments.
+    SECRET_KEY: str = os.getenv("SECRET_KEY", os.urandom(32).hex())
 
     def validate(self) -> None:
         if not self.LLM_BASE_URL:

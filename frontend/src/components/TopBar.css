@@ -96,11 +96,76 @@
   background: var(--text-dim);
 }
 
+.topbar__account {
+  position: relative;
+}
+
+.topbar__avatar {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-panel-raised);
+  color: var(--accent-strong);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: border-color 140ms ease;
+}
+
+.topbar__avatar:hover {
+  border-color: var(--accent);
+}
+
+.topbar__account-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 210px;
+  padding: 8px;
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+  z-index: 60;
+}
+
+.topbar__account-email {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--text-dim);
+  border-bottom: 1px solid var(--border-soft);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.topbar__account-menu button {
+  display: block;
+  width: 100%;
+  padding: 9px 12px;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.topbar__account-menu button:hover {
+  background: var(--accent-soft);
+}
+
 @media (max-width: 760px) {
   .topbar__inner { height: 60px; }
 
   .topbar__burger { display: flex; }
-  .topbar__actions .btn--primary { display: none; }
+  .topbar__cta-desktop,
+  .topbar__signin { display: none; }
 
   .topbar__nav {
     position: absolute;

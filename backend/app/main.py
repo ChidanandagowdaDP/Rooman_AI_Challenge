@@ -7,24 +7,30 @@ agents/ and services/.
 """
 import json
 import logging
+import uuid
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
+from app import auth as auth_service
 from app.config import settings
-from app.db import init_db
+from app.db import create_user, get_user_by_email, init_db
 from app.models.schemas import (
     FinalReportOut,
+    LoginRequest,
     QuestionOut,
     QuestionRecord,
+    RegisterRequest,
     SessionDetailOut,
     SessionSummaryOut,
     StartInterviewRequest,
     StartInterviewResponse,
     SubmitAnswerRequest,
     SubmitAnswerResponse,
+    TokenOut,
     TopicScore,
+    UserOut,
 )
 from app.services import session_service
 from app.services.llm_service import LLMJSONError
@@ -59,14 +65,59 @@ def health() -> dict:
     return {"status": "ok"}
 
 
+# ---------- Auth ----------
+
+def require_user(request: Request) -> UserOut:
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    claims = auth_service.verify_token(auth_header.removeprefix("Bearer ").strip())
+    if claims is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    return UserOut(id=claims["sub"], email=claims.get("email", ""))
+
+
+def _require_owner(state: dict, user: UserOut) -> None:
+    """404 (not 403) so session IDs can't be probed for existence."""
+    owner = state.get("owner_id")
+    if owner is not None and owner != user.id:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+
+@app.post("/api/auth/register", response_model=TokenOut)
+def register(payload: RegisterRequest) -> TokenOut:
+    if get_user_by_email(payload.email.lower()) is not None:
+        raise HTTPException(status_code=409, detail="An account with this email already exists")
+    user_id = uuid.uuid4().hex
+    create_user(user_id, payload.email.lower(), auth_service.hash_password(payload.password))
+    token = auth_service.create_token(user_id, payload.email.lower())
+    return TokenOut(token=token, user=UserOut(id=user_id, email=payload.email.lower()))
+
+
+@app.post("/api/auth/login", response_model=TokenOut)
+def login(payload: LoginRequest) -> TokenOut:
+    user = get_user_by_email(payload.email.lower())
+    if user is None or not auth_service.verify_password(payload.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
+    token = auth_service.create_token(user["id"], user["email"])
+    return TokenOut(token=token, user=UserOut(id=user["id"], email=user["email"]))
+
+
+@app.get("/api/auth/me", response_model=UserOut)
+def me(user: UserOut = Depends(require_user)) -> UserOut:
+    return user
+
+
 @app.get("/api/interviews", response_model=list[SessionSummaryOut])
-def list_interviews() -> list[SessionSummaryOut]:
-    return [SessionSummaryOut(**s) for s in session_service.list_sessions()]
+def list_interviews(user: UserOut = Depends(require_user)) -> list[SessionSummaryOut]:
+    return [SessionSummaryOut(**s) for s in session_service.list_sessions(user.id)]
 
 
 @app.get("/api/interviews/{session_id}", response_model=SessionDetailOut)
-def get_interview(session_id: str) -> SessionDetailOut:
+def get_interview(session_id: str, user: UserOut = Depends(require_user)) -> SessionDetailOut:
     try:
+        state = session_service.get_session(session_id)
+        _require_owner(state, user)
         view = session_service.get_session_view(session_id)
     except session_service.SessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Session not found") from exc
@@ -74,7 +125,9 @@ def get_interview(session_id: str) -> SessionDetailOut:
 
 
 @app.post("/api/interviews", response_model=StartInterviewResponse)
-def start_interview(payload: StartInterviewRequest) -> StartInterviewResponse:
+def start_interview(
+    payload: StartInterviewRequest, user: UserOut = Depends(require_user)
+) -> StartInterviewResponse:
     try:
         state = session_service.create_session(
             role=payload.role,
@@ -83,6 +136,7 @@ def start_interview(payload: StartInterviewRequest) -> StartInterviewResponse:
             interview_type=payload.interview_type.value,
             difficulty=payload.difficulty,
             num_questions=payload.num_questions,
+            owner_id=user.id,
         )
     except LLMJSONError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -102,8 +156,13 @@ def start_interview(payload: StartInterviewRequest) -> StartInterviewResponse:
 
 
 @app.post("/api/interviews/{session_id}/answers", response_model=SubmitAnswerResponse)
-def submit_answer(session_id: str, payload: SubmitAnswerRequest) -> SubmitAnswerResponse:
+def submit_answer(
+    session_id: str,
+    payload: SubmitAnswerRequest,
+    user: UserOut = Depends(require_user),
+) -> SubmitAnswerResponse:
     try:
+        _require_owner(session_service.get_session(session_id), user)
         result = session_service.submit_answer(
             session_id,
             question_id=payload.question_id,
@@ -141,12 +200,17 @@ def submit_answer(session_id: str, payload: SubmitAnswerRequest) -> SubmitAnswer
 
 
 @app.post("/api/interviews/{session_id}/answers/stream")
-def submit_answer_stream(session_id: str, payload: SubmitAnswerRequest):
+def submit_answer_stream(
+    session_id: str,
+    payload: SubmitAnswerRequest,
+    user: UserOut = Depends(require_user),
+):
     """
     Server-Sent Events stream for one answer submission:
     evaluation -> adaptive action -> live question generation -> final question.
     """
     try:
+        _require_owner(session_service.get_session(session_id), user)
         event_gen = session_service.submit_answer_stream(
             session_id,
             question_id=payload.question_id,
@@ -175,8 +239,9 @@ def submit_answer_stream(session_id: str, payload: SubmitAnswerRequest):
 
 
 @app.get("/api/interviews/{session_id}/report", response_model=FinalReportOut)
-def get_report(session_id: str) -> FinalReportOut:
+def get_report(session_id: str, user: UserOut = Depends(require_user)) -> FinalReportOut:
     try:
+        _require_owner(session_service.get_session(session_id), user)
         report = session_service.get_or_build_report(session_id)
         state = session_service.get_session(session_id)
     except session_service.SessionNotFoundError as exc:

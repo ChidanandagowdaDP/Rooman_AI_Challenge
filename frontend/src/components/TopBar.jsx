@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../auth.jsx";
 import "./TopBar.css";
 
 const LINKS = [
@@ -10,7 +11,21 @@ const LINKS = [
 
 export default function TopBar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+
+  function handleLogout() {
+    setAccountOpen(false);
+    setMenuOpen(false);
+    logout();
+    navigate("/");
+  }
+
+  function initials(email) {
+    return email ? email.slice(0, 2).toUpperCase() : "?";
+  }
 
   return (
     <header className="topbar">
@@ -44,22 +59,55 @@ export default function TopBar() {
               <Link
                 key={link.label}
                 to={link.to}
-                className={location.pathname === link.to ? "active" : ""}
+                className={
+                  (location.pathname === link.to && link.to !== "/#how-it-works")
+                    ? "active"
+                    : ""
+                }
                 onClick={() => setMenuOpen(false)}
               >
                 {link.label}
               </Link>
             )
           )}
-          <Link to="/setup" className="btn btn--primary btn--sm topbar__cta-mobile" onClick={() => setMenuOpen(false)}>
+          <Link
+            to={isAuthenticated ? "/setup" : "/login"}
+            className="btn btn--primary btn--sm topbar__cta-mobile"
+            onClick={() => setMenuOpen(false)}
+          >
             Start an interview
           </Link>
         </nav>
 
         <div className="topbar__actions">
-          <Link to="/setup" className="btn btn--primary btn--sm">
+          <Link to="/setup" className="btn btn--primary btn--sm topbar__cta-desktop">
             Start an interview
           </Link>
+
+          {isAuthenticated ? (
+            <div className="topbar__account">
+              <button
+                className="topbar__avatar"
+                aria-label="Account menu"
+                onClick={() => setAccountOpen((v) => !v)}
+              >
+                {initials(user?.email)}
+              </button>
+              {accountOpen && (
+                <div className="topbar__account-menu">
+                  <div className="topbar__account-email">{user?.email}</div>
+                  <button type="button" onClick={handleLogout}>
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link to="/login" className="btn btn--ghost btn--sm topbar__signin">
+              Sign in
+            </Link>
+          )}
+
           <button
             className="topbar__burger"
             aria-label="Toggle navigation"

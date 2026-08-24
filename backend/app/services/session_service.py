@@ -39,6 +39,7 @@ def create_session(
     interview_type: str,
     difficulty: Difficulty,
     num_questions: int,
+    owner_id: str | None = None,
 ) -> dict:
     session_id = uuid.uuid4().hex
 
@@ -56,6 +57,7 @@ def create_session(
 
     state = {
         "session_id": session_id,
+        "owner_id": owner_id,
         "role": role,
         "experience": experience,
         "skills": skills,
@@ -94,9 +96,9 @@ def _summary(state: dict) -> dict:
     }
 
 
-def list_sessions() -> list[dict]:
+def list_sessions(owner_id: str | None = None) -> list[dict]:
     """Newest-first summaries for the interview history view."""
-    return [_summary(state) for state in _db_list_sessions()]
+    return [_summary(state) for state in _db_list_sessions(owner_id)]
 
 
 def get_session_view(session_id: str) -> dict:

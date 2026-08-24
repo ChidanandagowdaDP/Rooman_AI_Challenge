@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import DifficultyGauge from "../components/DifficultyGauge.jsx";
 import { api } from "../api/client.js";
+import { useAuth } from "../auth.jsx";
 import "./Landing.css";
 
 const FEATURES = [
@@ -46,9 +47,14 @@ const STEPS = [
 
 export default function Landing() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [sessions, setSessions] = useState(null);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      setSessions(null);
+      return;
+    }
     let cancelled = false;
     api
       .listInterviews()
@@ -57,7 +63,7 @@ export default function Landing() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isAuthenticated]);
 
   return (
     <main className="landing">
@@ -147,7 +153,12 @@ export default function Landing() {
         <span className="section-label">Your activity</span>
         <h2 className="landing__section-title">Recent interviews</h2>
 
-        {sessions === null ? (
+        {!isAuthenticated ? (
+          <div className="panel panel--pad landing__history-empty">
+            <p>Sign in to see your interview history and reports.</p>
+            <Link to="/login" className="btn btn--primary btn--sm">Sign in</Link>
+          </div>
+        ) : sessions === null ? (
           <div className="panel panel--pad landing__history-empty">
             <span className="spinner" /> Loading sessions…
           </div>

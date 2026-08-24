@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import DifficultyGauge from "../components/DifficultyGauge.jsx";
 import DimensionScores from "../components/DimensionScores.jsx";
-import { api, API_URL, ApiError } from "../api/client.js";
+import { api, API_URL, ApiError, getToken } from "../api/client.js";
 import "./Interview.css";
 
 export default function Interview() {
@@ -84,11 +84,15 @@ export default function Interview() {
   }
 
   async function submitStream() {
+    const token = getToken();
     const resp = await fetch(
       `${API_URL}/api/interviews/${sessionId}/answers/stream`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           question_id: question.id,
           answer_text: answer,

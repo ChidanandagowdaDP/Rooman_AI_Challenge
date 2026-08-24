@@ -1,0 +1,72 @@
+.login {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) 0;
+}
+
+.login__card {
+  width: 100%;
+  max-width: 440px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-7);
+  box-shadow: var(--shadow-panel);
+}
+
+.login__title {
+  font-size: clamp(1.6rem, 3vw, 2rem);
+  line-height: 1.2;
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.login__lede {
+  color: var(--text-dim);
+  font-size: 0.95rem;
+  margin-bottom: var(--space-5);
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.login__form .btn--lg {
+  width: 100%;
+  margin-top: var(--space-2);
+}
+
+.login__error {
+  color: var(--bad);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.login__switch {
+  margin-top: var(--space-5);
+  color: var(--text-dim);
+  font-size: 0.92rem;
+}
+
+.login__switch button,
+.login__back a {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent-strong);
+  cursor: pointer;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.login__back {
+  margin-top: var(--space-3);
+  font-size: 0.88rem;
+}
+
+.login__back a {
+  color: var(--text-faint);
+}
