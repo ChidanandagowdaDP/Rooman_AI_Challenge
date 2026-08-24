@@ -33,20 +33,31 @@ go back and specifically probe the weak ones.
 
 ## Features
 
+- Accounts with JWT auth — every interview belongs to its user
 - Adaptive question generation — no hardcoded question bank
 - Five-dimension structured scoring (accuracy, relevance, completeness,
-  clarity, depth), returned as JSON, not free text
+  clarity, depth), returned as JSON, not free text; three selectable
+  scoring-focus presets (technical depth / balanced / communication)
+  reweight those dimensions per interview
+- Answers stream token-by-token over Server-Sent Events while the model
+  thinks, with a non-streaming fallback
 - Deterministic adaptive policy (see below) that decides difficulty and
   topic targeting after every single answer
 - Per-topic score tracking across the whole interview
 - Structured final report with deterministic numeric scores and an
-  LLM-written qualitative summary
-- React UI: landing page, interview setup, live interview screen with a
-  real-time difficulty gauge, and a final results dashboard
+  LLM-written qualitative summary, exportable as a PDF
+- Voice mode: dictate answers with the microphone and have questions read
+  aloud (Web Speech API)
+- Input sanitization on every user-supplied field plus per-user rate
+  limiting (sliding window) on auth and API routes
+- Light/dark theme with a system-aware default
+- React UI: landing page, login/signup, interview setup, live interview
+  screen with a real-time difficulty gauge, and a final results dashboard
 - Persistent sessions (SQLite) — a browser refresh doesn't lose interview
   state
-- Test suite covering scoring math, the adaptive policy, and three full
-  interview scenarios (strong / weak / mixed candidate)
+- Test suite covering scoring math, the adaptive policy, sanitization,
+  rate limiting, PDF generation, and three full interview scenarios
+  (strong / weak / mixed candidate)
 
 ## Architecture
 
@@ -56,16 +67,20 @@ interview-ai/
 │   ├── app/
 │   │   ├── main.py            REST API routes
 │   │   ├── config.py          Environment/config loading
-│   │   ├── db.py               SQLite persistence
+│   │   ├── auth.py            Password hashing + JWT signing/verification
+│   │   ├── db.py               SQLite persistence (users + interview sessions)
+│   │   ├── rate_limit.py       Sliding-window rate limiter middleware
+│   │   ├── sanitize.py         Input sanitization helpers
 │   │   ├── models/schemas.py   Pydantic request/response/internal models
 │   │   ├── agents/
 │   │   │   ├── interviewer.py         Generates the next question
 │   │   │   ├── evaluator.py           Scores a candidate's answer
 │   │   │   └── adaptive_controller.py Deterministic difficulty/topic policy
 │   │   ├── services/
-│   │   │   ├── llm_service.py    Anthropic API wrapper + JSON retry logic
-│   │   │   ├── scoring_service.py Weighted scoring, topic averages
+│   │   │   ├── llm_service.py    OpenAI-compatible client + JSON retry logic
+│   │   │   ├── scoring_service.py Weight presets, weighted scoring, topic averages
 │   │   │   ├── report_service.py  Final report assembly
+│   │   │   ├── pdf_service.py     PDF export of the final report
 │   │   │   └── session_service.py Orchestrates agents + persists state
 │   │   └── prompts/            One isolated prompt per agent
 │   └── tests/
@@ -196,6 +211,9 @@ Frontend: `http://localhost:3000` · Backend: `http://localhost:8000`
 | `DATABASE_PATH`      | No       | `interview_ai.db`          | SQLite file location                  |
 | `CORS_ORIGINS`       | No       | `http://localhost:5173`    | Comma-separated allowed origins       |
 | `MAX_LLM_RETRIES`    | No       | `3`                        | Retries on malformed JSON from model  |
+| `SECRET_KEY`         | No       | random per start           | HMAC key for auth tokens — set a stable value or all sessions invalidate on restart |
+| `RATE_LIMIT_AUTH_PER_MIN` | No  | `30`                       | Login/register requests per minute per user/IP |
+| `RATE_LIMIT_API_PER_MIN`  | No  | `60`                       | API requests per minute per user/IP   |
 
 **frontend/.env**
 
@@ -207,12 +225,13 @@ Frontend: `http://localhost:3000` · Backend: `http://localhost:8000`
 
 1. Start the backend (`uvicorn app.main:app --reload --port 8000`)
 2. Start the frontend (`npm run dev`)
-3. Open the app, click **Start an interview**
+3. Open the app and create an account (or sign in)
 4. Fill in role / experience / skills / interview type / difficulty /
-   number of questions
+   number of questions, and optionally pick a scoring focus
 5. Answer each question — the gauge on the right updates after every
    submission to show how difficulty is being recalibrated
-6. After the last question, click through to the final report
+6. After the last question, click through to the final report (or
+   download it as a PDF)
 
 ## Example interview
 
@@ -258,11 +277,15 @@ pytest
 Tests cover:
 
 - `test_scoring.py` — weighted score math, clamping, topic averaging
+- `test_scoring_weights.py` — scoring-focus presets and how they change
+  per-question scores
 - `test_adaptive_controller.py` — every branch of the adaptive policy,
   including the difficulty-ladder boundaries
+- `test_pdf.py` — PDF report generation (latin-1 safety, section content)
+- `test_sanitize_rate_limit.py` — input sanitization and the rate limiter
 - `test_api.py` — full request/response cycles for the strong / weak /
-  mixed scenarios above, with the LLM client mocked out so the suite
-  runs without a model server or network access
+  mixed scenarios above (including auth), with the LLM client mocked out
+  so the suite runs without a model server or network access
 
 ## Design decisions
 
@@ -322,18 +345,15 @@ hiring decision might be based on.
   human review of a sample of scored interviews.
 - SQLite is appropriate for a single backend instance. A multi-instance
   production deployment would need a shared database (e.g. Postgres) since
-  SQLite doesn't handle concurrent writers across processes well.
-- There's no authentication layer — anyone with a session ID can fetch
-  that session's report. A real deployment would need to tie sessions to
-  authenticated users.
+  SQLite doesn't handle concurrent writers across processes well. The
+  in-process sliding-window rate limiter has the same single-instance
+  constraint.
 - The adaptive policy's thresholds (8.0 / 6.0) were chosen to be
   explainable and are not tuned against real interview outcome data.
 
 ## Future improvements
 
-- Configurable scoring weights per role (e.g. weight `depth` higher for
-  senior roles)
 - Multi-interviewer / panel mode with independent scoring passes
-- Exportable PDF report
 - Resume-aware question generation (upload a resume, questions reference it)
-- Real-time transcription for a spoken-interview mode
+- A hosted LLM provider benchmark (latency/cost/quality across Groq,
+  OpenRouter, and local Ollama) to guide deployment recommendations
