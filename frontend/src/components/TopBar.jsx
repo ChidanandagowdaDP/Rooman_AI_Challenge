@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth.jsx";
+import { getTheme, toggleTheme } from "../theme.js";
 import "./TopBar.css";
 
 const LINKS = [
@@ -15,6 +16,11 @@ export default function TopBar() {
   const { user, isAuthenticated, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [theme, setTheme] = useState(getTheme);
+
+  function handleToggleTheme() {
+    setTheme(toggleTheme());
+  }
 
   function handleLogout() {
     setAccountOpen(false);
@@ -80,6 +86,30 @@ export default function TopBar() {
         </nav>
 
         <div className="topbar__actions">
+          <button
+            className="topbar__theme-toggle"
+            onClick={handleToggleTheme}
+            aria-label={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            title={theme === "dark" ? "Light mode" : "Dark mode"}
+          >
+            {theme === "dark" ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="12" cy="12" r="4.2" />
+                <path
+                  d="M12 2.5v2.4m0 14.2v2.4M2.5 12h2.4m14.2 0h2.4M5 5l1.7 1.7M17.3 17.3 19 19M19 5l-1.7 1.7M6.7 17.3 5 19"
+                  strokeLinecap="round"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path
+                  d="M20.6 14.2A8.8 8.8 0 0 1 9.8 3.4a8.8 8.8 0 1 0 10.8 10.8Z"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
+
           <Link to="/setup" className="btn btn--primary btn--sm topbar__cta-desktop">
             Start an interview
           </Link>

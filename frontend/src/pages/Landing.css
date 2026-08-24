@@ -283,7 +283,7 @@
 }
 
 .landing__history-table tbody tr:hover {
-  background: rgba(255, 255, 255, 0.015);
+  background: var(--panel-tint);
 }
 
 .landing__history-role {

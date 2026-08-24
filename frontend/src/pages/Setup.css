@@ -166,7 +166,7 @@ input[type="range"]::-moz-range-thumb {
 
 .skill-chip button {
   border: none;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--accent-soft);
   color: inherit;
   width: 17px;
   height: 17px;

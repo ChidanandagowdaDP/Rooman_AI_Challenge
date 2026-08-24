@@ -200,7 +200,7 @@
 }
 
 .qa-item__head:hover {
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--panel-tint);
 }
 
 .qa-item__num {

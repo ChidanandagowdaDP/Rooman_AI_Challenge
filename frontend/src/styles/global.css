@@ -63,7 +63,7 @@ input, textarea, select {
 }
 
 input:hover, textarea:hover, select:hover {
-  border-color: #2b3648;
+  border-color: var(--border-hover);
 }
 
 input:focus, textarea:focus, select:focus {
@@ -106,8 +106,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .btn:hover {
-  border-color: #323e54;
-  background: #1a2131;
+  border-color: var(--border-hover);
+  background: var(--bg-inset);
 }
 
 .btn:active {
@@ -164,7 +164,7 @@ input:focus, textarea:focus, select:focus {
 /* ---------- Surfaces ---------- */
 
 .panel {
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), transparent 40%), var(--bg-panel);
+  background: linear-gradient(180deg, var(--panel-tint), transparent 40%), var(--bg-panel);
   border: 1px solid var(--border-soft);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-panel);
@@ -223,7 +223,7 @@ input:focus, textarea:focus, select:focus {
   gap: 10px;
   background: var(--bad-soft);
   border: 1px solid rgba(248, 113, 113, 0.4);
-  color: #fecaca;
+  color: var(--bad-text);
   border-radius: var(--radius-sm);
   padding: 12px 16px;
   font-size: 13.5px;
@@ -240,7 +240,7 @@ input:focus, textarea:focus, select:focus {
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.25);
+  border: 2px solid var(--border-hover);
   border-top-color: currentColor;
   animation: spin 700ms linear infinite;
 }

@@ -1,6 +1,6 @@
 .footer {
   border-top: 1px solid var(--border-soft);
-  background: rgba(7, 9, 16, 0.6);
+  background: var(--bg-glass);
   margin-top: 96px;
 }
 
