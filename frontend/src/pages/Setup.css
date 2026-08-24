@@ -299,3 +299,59 @@ input[type="range"]::-moz-range-thumb {
   .field-row { grid-template-columns: 1fr; }
   .pill-group--cards { grid-template-columns: 1fr; }
 }
+
+.setup__toggle {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.setup__toggle:hover {
+  border-color: var(--border-hover);
+}
+
+.setup__toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.setup__toggle span:nth-child(2) {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.setup__toggle strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.setup__toggle em {
+  font-style: normal;
+  color: var(--text-dim);
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.setup__toggle-state {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--text-faint);
+}
+
+.setup__toggle-state.is-on {
+  border-color: transparent;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}

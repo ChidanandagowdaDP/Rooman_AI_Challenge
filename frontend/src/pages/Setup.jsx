@@ -19,6 +19,46 @@ const SCORING_FOCUS_OPTIONS = [
   { value: "balanced", label: "Balanced", hint: "All five dimensions equal" },
   { value: "communication", label: "Communication", hint: "Clarity weighs most" },
 ];
+const COMMON_ROLES = [
+  "Python Developer",
+  "Java Developer",
+  ".NET Developer",
+  "Frontend Developer",
+  "Backend Developer",
+  "Full Stack Developer",
+  "MERN Stack Developer",
+  "Mobile App Developer",
+  "Flutter Developer",
+  "Data Analyst",
+  "Data Scientist",
+  "Data Engineer",
+  "Machine Learning Engineer",
+  "AI Engineer",
+  "DevOps Engineer",
+  "Cloud Engineer",
+  "Database Administrator",
+  "QA Engineer",
+  "Automation Test Engineer",
+  "Cybersecurity Analyst",
+  "Business Analyst",
+  "Software Tester",
+  "Technical Support Engineer",
+  "Embedded Systems Engineer",
+  "Game Developer",
+];
+const POPULAR_SKILLS = [
+  "Python", "Java", "C", "C++", "C#", "JavaScript", "TypeScript", "Go",
+  "Rust", "PHP", "Ruby", "Kotlin", "Swift", "SQL", "NoSQL", "HTML/CSS",
+  "React", "Angular", "Vue.js", "Next.js", "Node.js", "Express.js",
+  "Django", "Flask", "FastAPI", "Spring Boot", ".NET Core",
+  "REST API", "GraphQL", "Microservices", "System Design",
+  "MongoDB", "PostgreSQL", "MySQL", "Redis", "Firebase",
+  "AWS", "Azure", "Google Cloud", "Docker", "Kubernetes", "Jenkins",
+  "Git", "Linux", "CI/CD", "Terraform",
+  "Machine Learning", "Deep Learning", "NLP", "Computer Vision",
+  "TensorFlow", "PyTorch", "Pandas", "NumPy", "scikit-learn",
+  "Power BI", "Tableau", "Excel", "Selenium", "Cypress", "Jira", "Agile/Scrum",
+];
 
 export default function Setup() {
   const navigate = useNavigate();
@@ -29,6 +69,7 @@ export default function Setup() {
   const [interviewType, setInterviewType] = useState("technical");
   const [difficulty, setDifficulty] = useState("medium");
   const [scoringFocus, setScoringFocus] = useState("technical_depth");
+  const [includeCoding, setIncludeCoding] = useState(false);
   const [numQuestions, setNumQuestions] = useState(7);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -43,7 +84,11 @@ export default function Setup() {
   function handleSkillKeyDown(e) {
     if (e.key === "Enter" || e.key === ",") {
       e.preventDefault();
-      addSkill(skillInput);
+      // A datalist suggestion highlighted with the arrow keys is already in
+      // the DOM input value but may not have reached React state yet — read
+      // the node after the current tick so the picked suggestion is added.
+      const el = e.currentTarget;
+      setTimeout(() => addSkill(el.value), 0);
     } else if (e.key === "Backspace" && !skillInput && skills.length) {
       setSkills(skills.slice(0, -1));
     }
@@ -71,6 +116,7 @@ export default function Setup() {
         interview_type: interviewType,
         difficulty,
         scoring_focus: scoringFocus,
+        include_coding: includeCoding,
         num_questions: numQuestions,
       });
       navigate(`/interview/${result.session_id}`, {
@@ -97,11 +143,19 @@ export default function Setup() {
             <input
               id="role"
               type="text"
-              placeholder="e.g. Python Backend Developer"
+              list="role-options"
+              placeholder="Pick a role or type your own"
+              autoComplete="off"
               value={role}
               onChange={(e) => setRole(e.target.value)}
               maxLength={120}
             />
+            <datalist id="role-options">
+              {COMMON_ROLES.map((r) => (
+                <option key={r} value={r} />
+              ))}
+            </datalist>
+            <span className="field__hint">Start typing to see common roles — anything custom works too.</span>
           </div>
 
           <div className="field-row">
@@ -151,6 +205,8 @@ export default function Setup() {
               <input
                 id="skills"
                 type="text"
+                list="skill-options"
+                autoComplete="off"
                 placeholder={skills.length ? "" : "Type a skill and press Enter"}
                 value={skillInput}
                 onChange={(e) => setSkillInput(e.target.value)}
@@ -158,7 +214,14 @@ export default function Setup() {
                 onBlur={() => addSkill(skillInput)}
               />
             </div>
-            <span className="field__hint">Press Enter or comma to add · Backspace removes the last chip</span>
+            <datalist id="skill-options">
+              {POPULAR_SKILLS.filter((s) => !skills.includes(s)).map((s) => (
+                <option key={s} value={s} />
+              ))}
+            </datalist>
+            <span className="field__hint">
+              Start typing for suggestions · Enter or comma adds · Backspace removes the last chip
+            </span>
           </div>
 
           <div className="field">
@@ -223,6 +286,26 @@ export default function Setup() {
             </span>
           </div>
 
+          <div className="field">
+            <label className="setup__toggle">
+              <input
+                type="checkbox"
+                checked={includeCoding}
+                onChange={(e) => setIncludeCoding(e.target.checked)}
+              />
+              <span>
+                <strong>Include coding challenges</strong>
+                <em>
+                  Every third question becomes a hands-on programming task answered
+                  in a built-in code editor (any language).
+                </em>
+              </span>
+              <span className={`setup__toggle-state mono ${includeCoding ? "is-on" : ""}`}>
+                {includeCoding ? "ON" : "OFF"}
+              </span>
+            </label>
+          </div>
+
           {error && <div className="error-banner">⚠ {error}</div>}
         </form>
 
@@ -238,6 +321,7 @@ export default function Setup() {
             />
             <BriefRow label="Type" value={INTERVIEW_TYPES.find((t) => t.value === interviewType)?.label} />
             <BriefRow label="Opening at" value={difficulty.toUpperCase()} mono />
+            <BriefRow label="Coding challenges" value={includeCoding ? "Included" : "None"} />
             <BriefRow label="Length" value={`${numQuestions} questions`} />
           </dl>
           <div className="setup__estimate">
