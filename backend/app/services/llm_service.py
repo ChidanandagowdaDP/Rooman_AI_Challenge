@@ -52,6 +52,48 @@ def _extract_json(text: str) -> dict:
         raise
 
 
+def try_parse_json(text: str):
+    """Best-effort JSON parse; returns dict or None instead of raising."""
+    try:
+        return _extract_json(text)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+
+def extract_partial_question(text: str) -> str:
+    """
+    Given a partially-streamed response expected to contain
+    {"question": "...", "topic": "..."}, return whatever of the question
+    string has arrived so far. Empty string if the key hasn't started yet.
+    """
+    marker = '"question"'
+    key_pos = text.find(marker)
+    if key_pos == -1:
+        return ""
+    colon = text.find(":", key_pos + len(marker))
+    if colon == -1:
+        return ""
+    i = colon + 1
+    while i < len(text) and text[i] in " \t\r\n":
+        i += 1
+    if i >= len(text) or text[i] != '"':
+        return ""
+    i += 1  # past opening quote
+    out = []
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\" and i + 1 < len(text):
+            nxt = text[i + 1]
+            out.append({"n": "\n", "t": "\t", '"': '"', "\\": "\\"}.get(nxt, nxt))
+            i += 2
+            continue
+        if ch == '"':
+            break
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def call_json(
     *, system_prompt: str, user_prompt: str, max_tokens: int = 1024
 ) -> dict:
@@ -93,3 +135,32 @@ def call_json(
     raise LLMJSONError(
         f"Failed to get valid JSON from model after {settings.MAX_LLM_RETRIES} attempts"
     ) from last_error
+
+
+def stream_text(
+    *, system_prompt: str, user_prompt: str, max_tokens: int = 1024
+):
+    """
+    Generator yielding text chunks from the model as they arrive.
+
+    Used for free-text generation where the user watches the response being
+    written live (e.g. the next interview question). Not retried — callers
+    fall back to call_json() if the stream fails mid-way.
+    """
+    try:
+        stream = _client.chat.completions.create(
+            model=settings.MODEL_NAME,
+            max_tokens=max_tokens,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            stream=True,
+        )
+        for chunk in stream:
+            delta = chunk.choices[0].delta.content if chunk.choices else None
+            if delta:
+                yield delta
+    except openai.APIError as exc:
+        logger.error("LLM stream failed: %s", exc)
+        raise LLMJSONError(f"Model stream failed: {exc}") from exc

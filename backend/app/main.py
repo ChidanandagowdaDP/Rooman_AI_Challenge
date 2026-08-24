@@ -5,10 +5,12 @@ Routes are intentionally thin: they validate input via Pydantic, delegate to
 session_service, and shape the response. All real logic lives in
 agents/ and services/.
 """
+import json
 import logging
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from app.config import settings
 from app.db import init_db
@@ -135,6 +137,40 @@ def submit_answer(session_id: str, payload: SubmitAnswerRequest) -> SubmitAnswer
         is_complete=result["is_complete"],
         progress=result["progress"],
         total=result["total"],
+    )
+
+
+@app.post("/api/interviews/{session_id}/answers/stream")
+def submit_answer_stream(session_id: str, payload: SubmitAnswerRequest):
+    """
+    Server-Sent Events stream for one answer submission:
+    evaluation -> adaptive action -> live question generation -> final question.
+    """
+    try:
+        event_gen = session_service.submit_answer_stream(
+            session_id,
+            question_id=payload.question_id,
+            answer_text=payload.answer_text,
+        )
+    except session_service.SessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Session not found") from exc
+    except session_service.InterviewAlreadyCompleteError as exc:
+        raise HTTPException(status_code=409, detail="Interview already complete") from exc
+    except session_service.QuestionMismatchError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    def sse():
+        try:
+            for event in event_gen:
+                yield f"data: {json.dumps(event, default=str)}\n\n"
+            yield 'data: {"type": "end"}\n\n'
+        except LLMJSONError as exc:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(exc)})}\n\n"
+
+    return StreamingResponse(
+        sse(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
     )
 
 

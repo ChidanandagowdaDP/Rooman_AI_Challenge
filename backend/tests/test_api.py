@@ -4,6 +4,7 @@ demo scenarios from the README: a strong candidate, a weak candidate, and a
 mixed candidate whose weak topic should get specifically targeted.
 """
 import itertools
+import json
 from unittest.mock import patch
 
 import pytest
@@ -183,3 +184,53 @@ def test_get_interview_detail_includes_current_question(mock_call_json):
 
     missing = client.get("/api/interviews/does-not-exist")
     assert missing.status_code == 404
+
+
+@patch("app.agents.interviewer.stream_question_text")
+@patch("app.agents.evaluator.call_json")
+@patch("app.agents.interviewer.generate_question")
+def test_stream_submit_answer_emits_events(mock_gen, mock_eval, mock_stream):
+    mock_gen.return_value = {
+        "id": "startq123",
+        "text": "Explain Python decorators.",
+        "topic": "Python",
+        "index": 1,
+    }
+    start = client.post("/api/interviews", json=_start_payload()).json()
+    session_id = start["session_id"]
+    question_id = start["first_question"]["id"]
+
+    mock_eval.return_value = _eval_response(
+        {"accuracy": 9, "relevance": 9, "completeness": 9, "clarity": 9, "depth": 9}
+    )
+
+    def fake_stream(**kwargs):
+        yield '{"question": "Explain '
+        yield 'indexes in SQL.", "topic": "SQL"}'
+
+    mock_stream.side_effect = fake_stream
+
+    with client.stream(
+        "POST",
+        f"/api/interviews/{session_id}/answers/stream",
+        json={"question_id": question_id, "answer_text": "A strong answer."},
+    ) as resp:
+        assert resp.status_code == 200
+        events = []
+        for line in resp.iter_lines():
+            if line.startswith("data: "):
+                events.append(json.loads(line[len("data: "):]))
+
+    types = [e["type"] for e in events]
+    assert "evaluation" in types
+    assert "question_delta" in types
+    assert "next_question" in types
+    assert types[-1] == "end"
+
+    eval_event = next(e for e in events if e["type"] == "evaluation")
+    assert eval_event["adaptive_action"] == "INCREASE_DIFFICULTY"
+
+    nq = next(e for e in events if e["type"] == "next_question")["next_question"]
+    assert nq["text"] == "Explain indexes in SQL."
+    assert nq["topic"] == "SQL"
+    assert nq["difficulty"] == "hard"

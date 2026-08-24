@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import DifficultyGauge from "../components/DifficultyGauge.jsx";
 import DimensionScores from "../components/DimensionScores.jsx";
-import { api, ApiError } from "../api/client.js";
+import { api, API_URL, ApiError } from "../api/client.js";
 import "./Interview.css";
 
 export default function Interview() {
@@ -18,9 +18,10 @@ export default function Interview() {
   const [adaptiveAction, setAdaptiveAction] = useState(null);
   const [difficulty, setDifficulty] = useState(question?.difficulty ?? "medium");
   const [progress, setProgress] = useState({ answered: 0, total: question?.total ?? 0 });
-  const [phase, setPhase] = useState("answering"); // answering | evaluating | reviewing | finishing
+  const [phase, setPhase] = useState("answering"); // answering | evaluating | generating | reviewing | finishing
   const [error, setError] = useState(null);
   const [elapsed, setElapsed] = useState(0);
+  const [preview, setPreview] = useState("");
 
   const textareaRef = useRef(null);
   const questionStartRef = useRef(Date.now());
@@ -75,9 +76,98 @@ export default function Interview() {
 
   const wordCount = answer.trim() ? answer.trim().split(/\s+/).length : 0;
 
+  function applyEvaluation(result) {
+    setEvaluation(result.evaluation);
+    setAdaptiveAction(result.adaptive_action);
+    setProgress({ answered: result.progress, total: result.total });
+    if (result.next_difficulty) setDifficulty(result.next_difficulty);
+  }
+
+  async function submitStream() {
+    const resp = await fetch(
+      `${API_URL}/api/interviews/${sessionId}/answers/stream`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          question_id: question.id,
+          answer_text: answer,
+        }),
+      }
+    );
+    if (!resp.ok || !resp.body) {
+      let detail = `Request failed (${resp.status})`;
+      try {
+        const body = await resp.json();
+        detail = body.detail || detail;
+      } catch { /* no body */ }
+      throw new ApiError(detail, resp.status);
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let streamDone = false;
+
+    while (!streamDone) {
+      const { done, value } = await reader.read();
+      if (done) {
+        streamDone = true;
+        break;
+      }
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        let event;
+        try {
+          event = JSON.parse(line.slice(6));
+        } catch {
+          continue;
+        }
+        switch (event.type) {
+          case "evaluation":
+            applyEvaluation(event);
+            setPhase(event.is_complete ? "finishing" : "generating");
+            break;
+          case "question_delta":
+            setPreview((p) => p + event.text);
+            break;
+          case "next_question":
+            setQuestion(event.next_question);
+            setPreview("");
+            setPhase("reviewing");
+            break;
+          case "error":
+            throw new ApiError(event.message || "Model error.", 502);
+          default:
+            break;
+        }
+      }
+    }
+  }
+
+  async function submitClassic() {
+    const result = await api.submitAnswer(sessionId, {
+      question_id: question.id,
+      answer_text: answer,
+    });
+    applyEvaluation(result);
+    if (result.next_question) {
+      setDifficulty(result.next_question.difficulty);
+    }
+    if (result.is_complete) {
+      setPhase("finishing");
+    } else {
+      setQuestion(result.next_question);
+      setPhase("reviewing");
+    }
+  }
+
   async function handleSubmit(e) {
     e?.preventDefault();
-    if (phase === "evaluating" || phase === "finishing") return;
+    if (["evaluating", "generating", "finishing"].includes(phase)) return;
     if (!answer.trim()) {
       setError("Write an answer before submitting.");
       return;
@@ -86,23 +176,11 @@ export default function Interview() {
     setPhase("evaluating");
 
     try {
-      const result = await api.submitAnswer(sessionId, {
-        question_id: question.id,
-        answer_text: answer,
-      });
-      setEvaluation(result.evaluation);
-      setAdaptiveAction(result.adaptive_action);
-      setProgress({ answered: result.progress, total: result.total });
-
-      if (result.next_question) {
-        setDifficulty(result.next_question.difficulty);
-      }
-
-      if (result.is_complete) {
-        setPhase("finishing");
-      } else {
-        setPhase("reviewing");
-        setQuestion(result.next_question);
+      try {
+        await submitStream();
+      } catch (streamErr) {
+        // Streaming not available or failed mid-way — classic path as fallback.
+        await submitClassic();
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Could not evaluate your answer.");
@@ -115,6 +193,7 @@ export default function Interview() {
     setEvaluation(null);
     setAdaptiveAction(null);
     setError(null);
+    setPreview("");
     setPhase("answering");
   }, []);
 
@@ -239,8 +318,18 @@ export default function Interview() {
 
               {error && phase === "answering" && <div className="error-banner">⚠ {error}</div>}
 
-              {phase === "reviewing" && evaluation && (
-                <div className="interview__result fade-up">
+              {phase === "generating" && (
+                <div className="interview__typing fade-up">
+                  <span className="section-label">Writing your next question</span>
+                  <p className="interview__typing-text">
+                    {preview || <span className="spinner" />}
+                    <span className="interview__caret" aria-hidden="true" />
+                  </p>
+                </div>
+              )}
+
+              {(phase === "reviewing" || phase === "generating") && evaluation && (
+                <div className={`interview__result fade-up ${phase === "generating" ? "interview__result--dimmed" : ""}`}>
                   <div className="interview__result-header">
                     <div>
                       <span className="interview__result-score mono">
@@ -264,7 +353,11 @@ export default function Interview() {
                   )}
                   <p className="interview__result-feedback">{evaluation.feedback}</p>
 
-                  <button className="btn btn--primary interview__continue" onClick={handleContinue}>
+                  <button
+                    className="btn btn--primary interview__continue"
+                    onClick={handleContinue}
+                    disabled={phase === "generating"}
+                  >
                     Continue interview →
                     <kbd className="mono">Ctrl+↵</kbd>
                   </button>

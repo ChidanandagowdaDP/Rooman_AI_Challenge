@@ -16,6 +16,7 @@ from app.db import (
     save_session,
 )
 from app.models.schemas import AdaptiveAction, Difficulty
+from app.services import llm_service
 
 
 class SessionNotFoundError(Exception):
@@ -186,6 +187,119 @@ def submit_answer(session_id: str, *, question_id: str, answer_text: str) -> dic
         "progress": answered_count,
         "total": state["num_questions"],
     }
+
+
+def submit_answer_stream(session_id: str, *, question_id: str, answer_text: str):
+    """
+    Streaming variant of submit_answer.
+
+    Validates eagerly (so HTTP errors surface before the response starts),
+    then returns a generator of typed events:
+      {"type": "evaluation", ...}       — full evaluation + adaptive decision
+      {"type": "question_delta", ...}   — growing preview of the next question
+      {"type": "next_question", ...}    — the persisted final question object
+      {"type": "complete"}              — interview finished
+    """
+    state = get_session(session_id)
+    if state["completed"]:
+        raise InterviewAlreadyCompleteError(session_id)
+    current_q = state["current_question"]
+    if current_q["id"] != question_id:
+        raise QuestionMismatchError(f"expected {current_q['id']}, got {question_id}")
+
+    def events():
+        evaluation = evaluator.evaluate_answer(
+            question=current_q["text"],
+            topic=current_q["topic"],
+            role=state["role"],
+            experience=state["experience"],
+            answer=answer_text,
+        )
+
+        record = {
+            "question_id": current_q["id"],
+            "question_text": current_q["text"],
+            "topic": current_q["topic"],
+            "difficulty": current_q["difficulty"],
+            "answer_text": answer_text,
+            **evaluation,
+        }
+        state["questions_asked"].append(current_q)
+        state["evaluations"].append(record)
+
+        answered_count = len(state["evaluations"])
+        is_last = answered_count >= state["num_questions"]
+
+        action, next_difficulty, weak_topic = adaptive_controller.decide_next_action(
+            latest_score=evaluation["score"],
+            current_difficulty=Difficulty(state["current_difficulty"]),
+            evaluations=state["evaluations"],
+        )
+        state["current_difficulty"] = next_difficulty.value
+
+        yield {
+            "type": "evaluation",
+            "evaluation": record,
+            "adaptive_action": action,
+            "next_difficulty": next_difficulty.value,
+            "is_complete": is_last,
+            "progress": answered_count,
+            "total": state["num_questions"],
+        }
+
+        if is_last:
+            state["completed"] = True
+            state["current_question"] = None
+            save_session(session_id, state)
+            yield {"type": "complete"}
+            return
+
+        gen_kwargs = dict(
+            role=state["role"],
+            experience=state["experience"],
+            skills=state["skills"],
+            interview_type=state["interview_type"],
+            difficulty=next_difficulty,
+            previously_asked=[q["text"] for q in state["questions_asked"]],
+            weak_topic=weak_topic,
+            question_index=answered_count + 1,
+            total_questions=state["num_questions"],
+        )
+
+        sent_chars = 0
+        raw = ""
+        try:
+            for chunk in interviewer.stream_question_text(**gen_kwargs):
+                raw += chunk
+                partial = llm_service.extract_partial_question(raw)
+                if len(partial) > sent_chars:
+                    yield {
+                        "type": "question_delta",
+                        "text": partial[sent_chars:],
+                    }
+                    sent_chars = len(partial)
+        except llm_service.LLMJSONError:
+            pass  # fall through to non-streaming generation below
+
+        parsed = llm_service.try_parse_json(raw)
+        if parsed and parsed.get("question"):
+            next_question = {
+                "id": uuid.uuid4().hex[:12],
+                "text": parsed["question"],
+                "topic": parsed.get("topic", "General"),
+                "difficulty": next_difficulty,
+                "index": answered_count + 1,
+            }
+        else:
+            # Stream failed or returned unparseable text — authoritative retry.
+            next_question = interviewer.generate_question(**gen_kwargs)
+
+        state["current_question"] = next_question | {"difficulty": next_difficulty.value}
+        save_session(session_id, state)
+
+        yield {"type": "next_question", "next_question": next_question}
+
+    return events()
 
 
 def get_or_build_report(session_id: str) -> dict:
