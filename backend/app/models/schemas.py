@@ -68,6 +68,7 @@ class StartInterviewRequest(BaseModel):
     difficulty: Difficulty = Difficulty.MEDIUM
     num_questions: int = Field(default=7, ge=5, le=10)
     scoring_focus: ScoringFocus = ScoringFocus.TECHNICAL_DEPTH
+    include_coding: bool = False
 
     @field_validator("role")
     @classmethod
@@ -101,6 +102,9 @@ class QuestionOut(BaseModel):
     difficulty: Difficulty
     index: int
     total: int
+    is_coding: bool = False
+    language: Optional[str] = None
+    starter_code: Optional[str] = None
 
 
 class StartInterviewResponse(BaseModel):
@@ -132,6 +136,9 @@ class SessionDetailOut(SessionSummaryOut):
 class SubmitAnswerRequest(BaseModel):
     question_id: str
     answer_text: str = Field(..., min_length=1, max_length=8000)
+    # Language the candidate wrote their solution in (coding questions).
+    # Overrides the question's own language so evaluation matches reality.
+    code_language: Optional[str] = None
 
     @field_validator("answer_text")
     @classmethod
@@ -140,6 +147,14 @@ class SubmitAnswerRequest(BaseModel):
         if not cleaned:
             raise ValueError("Answer must contain visible text")
         return cleaned
+
+    @field_validator("code_language")
+    @classmethod
+    def clean_code_language(cls, v: Optional[str]) -> Optional[str]:
+        if not v:
+            return None
+        cleaned = clean_single_line(v, 30)
+        return cleaned.lower() or None
 
 
 class EvaluationOut(BaseModel):
@@ -205,6 +220,9 @@ class InternalQuestion(BaseModel):
     topic: str
     difficulty: Difficulty
     index: int
+    is_coding: bool = False
+    language: Optional[str] = None
+    starter_code: Optional[str] = None
 
 
 class InternalEvaluation(BaseModel):

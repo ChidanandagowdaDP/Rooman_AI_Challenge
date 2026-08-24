@@ -10,15 +10,38 @@ outside the JSON object."""
 
 
 def build_evaluation_prompt(
-    *, question: str, topic: str, role: str, experience: str, answer: str
+    *,
+    question: str,
+    topic: str,
+    role: str,
+    experience: str,
+    answer: str,
+    answer_is_code: bool = False,
+    language: str | None = None,
 ) -> str:
+    if answer_is_code:
+        code_block = f"""
+This is a CODING question and the candidate submitted source code\
+{f" in {language}" if language else ""}. Judge the CODE itself:
+- accuracy: would it produce correct results, including edge cases \
+(empty input, duplicates, boundaries)?
+- completeness: handles the full task spec; no missing cases or TODO stubs.
+- clarity: readable names, consistent style, sensible structure.
+- depth: appropriate data structures/algorithms; notes complexity when relevant.
+Do not penalize a missing explanation if the code answers the task fully. \
+A syntactically plausible but logically broken solution must score LOW on \
+accuracy.
+"""
+    else:
+        code_block = ""
+
     return f"""Evaluate this candidate's answer.
 
 Role: {role}
 Experience level: {experience}
 Topic: {topic}
 Question: {question}
-
+{code_block}
 Candidate's answer:
 \"\"\"{answer}\"\"\"
 

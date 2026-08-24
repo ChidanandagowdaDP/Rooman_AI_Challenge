@@ -1,13 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, lazy, Suspense, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import DifficultyGauge from "../components/DifficultyGauge.jsx";
 import DimensionScores from "../components/DimensionScores.jsx";
+import {
+  CODE_LANGUAGES,
+  normalizeLanguage,
+} from "../components/codeLanguages.js";
 import { api, API_URL, ApiError, getToken } from "../api/client.js";
 import {
   useSpeechRecognition,
   useSpeechSynthesis,
 } from "../hooks/useSpeech.js";
 import "./Interview.css";
+
+// CodeMirror is heavy (~800 kB) — only fetched when a coding challenge appears.
+const CodeEditor = lazy(() => import("../components/CodeEditor.jsx"));
 
 export default function Interview() {
   const { sessionId } = useParams();
@@ -29,6 +36,20 @@ export default function Interview() {
 
   const textareaRef = useRef(null);
   const questionStartRef = useRef(Date.now());
+
+  /* ----- Coding challenges: language selector + starter-code prefill ----- */
+  const isCoding = Boolean(question?.is_coding);
+  const [codeLang, setCodeLang] = useState("python");
+  useEffect(() => {
+    if (!question?.id || !question.is_coding) return;
+    setAnswer((prev) =>
+      prev.trim() ? prev : question.starter_code || ""
+    );
+    const suggested = normalizeLanguage(question.language);
+    const known = CODE_LANGUAGES.some((l) => l.id === suggested);
+    setCodeLang(known ? suggested : "python");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [question?.id]);
 
   /* ----- Voice mode (browser-native STT/TTS) ----- */
   const appendTranscript = useCallback((text) => {
@@ -101,6 +122,7 @@ export default function Interview() {
   }, [phase, stopListening, stopSpeaking]);
 
   const wordCount = answer.trim() ? answer.trim().split(/\s+/).length : 0;
+  const lineCount = answer ? answer.split("\n").length : 0;
 
   function applyEvaluation(result) {
     setEvaluation(result.evaluation);
@@ -122,6 +144,7 @@ export default function Interview() {
         body: JSON.stringify({
           question_id: question.id,
           answer_text: answer,
+          ...(isCoding ? { code_language: codeLang } : {}),
         }),
       }
     );
@@ -182,6 +205,7 @@ export default function Interview() {
     const result = await api.submitAnswer(sessionId, {
       question_id: question.id,
       answer_text: answer,
+      ...(isCoding ? { code_language: codeLang } : {}),
     });
     applyEvaluation(result);
     if (result.next_question) {
@@ -344,19 +368,52 @@ export default function Interview() {
 
               {(phase === "answering" || phase === "evaluating") && (
                 <form onSubmit={handleSubmit} className="interview__form">
-                  <textarea
-                    ref={textareaRef}
-                    rows={9}
-                    placeholder="Type your answer here…"
-                    value={answer}
-                    onChange={(e) => setAnswer(e.target.value)}
-                    disabled={phase === "evaluating"}
-                  />
+                  {isCoding ? (
+                    <div className="interview__code">
+                      <div className="interview__code-head">
+                        <span className="section-label">Your solution</span>
+                        <label className="interview__code-lang">
+                          Language
+                          <select
+                            value={codeLang}
+                            onChange={(e) => setCodeLang(e.target.value)}
+                            disabled={phase === "evaluating"}
+                          >
+                            {CODE_LANGUAGES.map((l) => (
+                              <option key={l.id} value={l.id}>
+                                {l.label}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <Suspense fallback={<span className="spinner" />}>
+                        <CodeEditor
+                          value={answer}
+                          onChange={setAnswer}
+                          language={codeLang}
+                          readOnly={phase === "evaluating"}
+                          placeholder="// Write your solution here…"
+                        />
+                      </Suspense>
+                    </div>
+                  ) : (
+                    <textarea
+                      ref={textareaRef}
+                      rows={9}
+                      placeholder="Type your answer here…"
+                      value={answer}
+                      onChange={(e) => setAnswer(e.target.value)}
+                      disabled={phase === "evaluating"}
+                    />
+                  )}
                   <div className="interview__form-foot">
                     <span className={`interview__words mono ${wordCount > 0 ? "" : "interview__words--zero"}`}>
-                      {wordCount} word{wordCount === 1 ? "" : "s"}
+                      {isCoding
+                        ? `${lineCount} line${lineCount === 1 ? "" : "s"}`
+                        : `${wordCount} word${wordCount === 1 ? "" : "s"}`}
                     </span>
-                    {sttSupported && phase === "answering" && (
+                    {!isCoding && sttSupported && phase === "answering" && (
                       <>
                         {listening && interim && (
                           <span className="interview__interim mono">“{interim}”</span>

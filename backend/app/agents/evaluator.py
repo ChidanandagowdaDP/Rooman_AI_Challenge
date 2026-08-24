@@ -16,9 +16,17 @@ def evaluate_answer(
     experience: str,
     answer: str,
     weights: dict | None = None,
+    answer_is_code: bool = False,
+    language: str | None = None,
 ) -> dict:
     prompt = build_evaluation_prompt(
-        question=question, topic=topic, role=role, experience=experience, answer=answer
+        question=question,
+        topic=topic,
+        role=role,
+        experience=experience,
+        answer=answer,
+        answer_is_code=answer_is_code,
+        language=language,
     )
     result = call_json(system_prompt=SYSTEM_PROMPT, user_prompt=prompt, max_tokens=700)
 

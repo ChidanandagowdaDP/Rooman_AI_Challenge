@@ -22,6 +22,7 @@ def _question_context(
     weak_topic: str | None,
     question_index: int,
     total_questions: int,
+    include_coding: bool = False,
 ):
     return dict(
         role=role,
@@ -33,7 +34,21 @@ def _question_context(
         weak_topic=weak_topic,
         question_index=question_index,
         total_questions=total_questions,
+        include_coding=include_coding,
     )
+
+
+def _coding_fields(result: dict, include_coding: bool) -> dict:
+    """Extract optional coding-challenge fields from an LLM response."""
+    if not include_coding or not result.get("is_coding"):
+        return {"is_coding": False, "language": None, "starter_code": None}
+    language = result.get("language") or "python"
+    starter = (result.get("starter_code") or "").strip() or None
+    return {
+        "is_coding": True,
+        "language": str(language).strip().lower(),
+        "starter_code": starter,
+    }
 
 
 def generate_question(
@@ -47,6 +62,7 @@ def generate_question(
     weak_topic: str | None,
     question_index: int,
     total_questions: int,
+    include_coding: bool = False,
 ) -> dict:
     prompt = build_question_prompt(
         **_question_context(
@@ -59,9 +75,12 @@ def generate_question(
             weak_topic=weak_topic,
             question_index=question_index,
             total_questions=total_questions,
+            include_coding=include_coding,
         )
     )
-    result = call_json(system_prompt=SYSTEM_PROMPT, user_prompt=prompt, max_tokens=400)
+    # Coding challenges carry a starter-code skeleton, so allow more tokens.
+    max_tokens = 700 if include_coding else 400
+    result = call_json(system_prompt=SYSTEM_PROMPT, user_prompt=prompt, max_tokens=max_tokens)
 
     return {
         "id": uuid.uuid4().hex[:12],
@@ -69,6 +88,7 @@ def generate_question(
         "topic": result.get("topic", "General"),
         "difficulty": difficulty,
         "index": question_index,
+        **_coding_fields(result, include_coding),
     }
 
 
@@ -81,4 +101,5 @@ def stream_question_text(**kwargs):
     """
     context = _question_context(**kwargs)
     prompt = build_question_prompt(**context)
-    return stream_text(system_prompt=SYSTEM_PROMPT, user_prompt=prompt, max_tokens=400)
+    max_tokens = 700 if context.get("include_coding") else 400
+    return stream_text(system_prompt=SYSTEM_PROMPT, user_prompt=prompt, max_tokens=max_tokens)

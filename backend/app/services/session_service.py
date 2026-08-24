@@ -41,6 +41,7 @@ def create_session(
     num_questions: int,
     owner_id: str | None = None,
     scoring_focus: str = "technical_depth",
+    include_coding: bool = False,
 ) -> dict:
     session_id = uuid.uuid4().hex
 
@@ -54,6 +55,7 @@ def create_session(
         weak_topic=None,
         question_index=1,
         total_questions=num_questions,
+        include_coding=include_coding,
     )
 
     state = {
@@ -64,6 +66,7 @@ def create_session(
         "skills": skills,
         "interview_type": interview_type,
         "scoring_focus": scoring_service.normalize_focus(scoring_focus),
+        "include_coding": bool(include_coding),
         "current_difficulty": difficulty.value,
         "num_questions": num_questions,
         "current_question": first_question | {"difficulty": difficulty.value},
@@ -120,7 +123,13 @@ def get_session_view(session_id: str) -> dict:
     return view
 
 
-def submit_answer(session_id: str, *, question_id: str, answer_text: str) -> dict:
+def submit_answer(
+    session_id: str,
+    *,
+    question_id: str,
+    answer_text: str,
+    code_language: str | None = None,
+) -> dict:
     state = get_session(session_id)
 
     if state["completed"]:
@@ -137,9 +146,11 @@ def submit_answer(session_id: str, *, question_id: str, answer_text: str) -> dic
         topic=current_q["topic"],
         role=state["role"],
         experience=state["experience"],
-        answer=answer_text,
-        weights=scoring_service.weights_for(state.get("scoring_focus")),
-    )
+            answer=answer_text,
+            weights=scoring_service.weights_for(state.get("scoring_focus")),
+            answer_is_code=bool(current_q.get("is_coding")),
+            language=code_language or current_q.get("language"),
+        )
 
     record = {
         "question_id": current_q["id"],
@@ -176,6 +187,7 @@ def submit_answer(session_id: str, *, question_id: str, answer_text: str) -> dic
             weak_topic=weak_topic,
             question_index=answered_count + 1,
             total_questions=state["num_questions"],
+            include_coding=state.get("include_coding", False),
         )
         state["current_question"] = next_question | {"difficulty": next_difficulty.value}
     else:
@@ -194,7 +206,13 @@ def submit_answer(session_id: str, *, question_id: str, answer_text: str) -> dic
     }
 
 
-def submit_answer_stream(session_id: str, *, question_id: str, answer_text: str):
+def submit_answer_stream(
+    session_id: str,
+    *,
+    question_id: str,
+    answer_text: str,
+    code_language: str | None = None,
+):
     """
     Streaming variant of submit_answer.
 
@@ -220,6 +238,8 @@ def submit_answer_stream(session_id: str, *, question_id: str, answer_text: str)
             experience=state["experience"],
             answer=answer_text,
             weights=scoring_service.weights_for(state.get("scoring_focus")),
+            answer_is_code=bool(current_q.get("is_coding")),
+            language=code_language or current_q.get("language"),
         )
 
         record = {
@@ -270,6 +290,7 @@ def submit_answer_stream(session_id: str, *, question_id: str, answer_text: str)
             weak_topic=weak_topic,
             question_index=answered_count + 1,
             total_questions=state["num_questions"],
+            include_coding=state.get("include_coding", False),
         )
 
         sent_chars = 0
@@ -295,6 +316,7 @@ def submit_answer_stream(session_id: str, *, question_id: str, answer_text: str)
                 "topic": parsed.get("topic", "General"),
                 "difficulty": next_difficulty,
                 "index": answered_count + 1,
+                **interviewer._coding_fields(parsed, state.get("include_coding", False)),
             }
         else:
             # Stream failed or returned unparseable text — authoritative retry.

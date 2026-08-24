@@ -1,0 +1,40 @@
+.code-editor {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-glass-solid);
+}
+
+.code-editor .cm-theme,
+.code-editor .cm-editor {
+  background: transparent;
+}
+
+.code-editor .cm-editor {
+  font-family: var(--font-mono);
+  font-size: 13.5px;
+  color: var(--text);
+}
+
+.code-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.code-editor .cm-gutters {
+  background: transparent;
+  border-right: 1px solid var(--border-soft);
+  color: var(--text-faint);
+}
+
+.code-editor .cm-activeLine,
+.code-editor .cm-activeLineGutter {
+  background: var(--accent-soft);
+}
+
+.code-editor .cm-placeholder {
+  color: var(--text-faint);
+}
+
+.code-editor .cm-cursor {
+  border-left-color: var(--accent);
+}

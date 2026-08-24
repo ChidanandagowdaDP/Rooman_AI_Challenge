@@ -157,6 +157,7 @@ def start_interview(
             num_questions=payload.num_questions,
             owner_id=user.id,
             scoring_focus=payload.scoring_focus.value,
+            include_coding=payload.include_coding,
         )
     except LLMJSONError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
@@ -171,6 +172,9 @@ def start_interview(
             difficulty=q["difficulty"],
             index=1,
             total=state["num_questions"],
+            is_coding=bool(q.get("is_coding")),
+            language=q.get("language"),
+            starter_code=q.get("starter_code"),
         ),
     )
 
@@ -187,6 +191,7 @@ def submit_answer(
             session_id,
             question_id=payload.question_id,
             answer_text=payload.answer_text,
+            code_language=payload.code_language,
         )
     except session_service.SessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Session not found") from exc
@@ -207,6 +212,9 @@ def submit_answer(
             difficulty=nq["difficulty"],
             index=result["progress"] + 1,
             total=result["total"],
+            is_coding=bool(nq.get("is_coding")),
+            language=nq.get("language"),
+            starter_code=nq.get("starter_code"),
         )
 
     return SubmitAnswerResponse(
@@ -235,6 +243,7 @@ def submit_answer_stream(
             session_id,
             question_id=payload.question_id,
             answer_text=payload.answer_text,
+            code_language=payload.code_language,
         )
     except session_service.SessionNotFoundError as exc:
         raise HTTPException(status_code=404, detail="Session not found") from exc

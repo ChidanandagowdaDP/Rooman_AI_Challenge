@@ -374,3 +374,30 @@
   .interview__gauge-card { position: static; }
   .interview__stage { padding: 24px 22px 28px; }
 }
+
+/* ----- Coding challenge editor ----- */
+.interview__code {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.interview__code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.interview__code-lang {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.interview__code-lang select {
+  padding: 6px 10px;
+  font-size: 13px;
+}

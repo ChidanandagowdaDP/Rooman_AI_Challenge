@@ -26,9 +26,38 @@ def build_question_prompt(
     weak_topic: str | None,
     question_index: int,
     total_questions: int,
+    include_coding: bool = False,
 ) -> str:
     asked_block = "\n".join(f"- {q}" for q in previously_asked) or "(none yet)"
     weak_block = weak_topic or "(none — pick any relevant topic)"
+
+    coding_block = ""
+    json_shape = """{{
+  "question": "the full question text",
+  "topic": "short topic label"
+}}"""
+    if include_coding:
+        coding_block = """
+Coding challenges: this interview includes hands-on coding. On questions \
+2, 5, 8, ... (every third question starting with question 2) you MUST ask a \
+small self-contained programming challenge instead of a conceptual one; on \
+all other questions is_coding must be false. A challenge must:
+- Be solvable in 5-10 minutes in the candidate's primary skill language.
+- State the exact task, inputs/outputs, and any constraints inside "question".
+- Match the requested difficulty (easy: single-pass logic; medium: loops + \
+edge cases or simple data structures; hard: algorithmic trade-offs).
+- Pick "language" from the candidate's listed skills when possible \
+(e.g. "python", "javascript", "java", "sql", "c++"); fall back to "python".
+- Provide short "starter_code": a function/class skeleton with a TODO body \
+(3-8 lines). Escape newlines as \\n so it stays valid JSON.
+"""
+        json_shape = """{{
+  "question": "the full task text",
+  "topic": "short topic label",
+  "is_coding": true or false,
+  "language": "language name (coding questions only)",
+  "starter_code": "skeleton code with \\n escapes (coding questions only)"
+}}"""
 
     return f"""Generate ONE interview question.
 
@@ -57,9 +86,6 @@ debugging scenario, or design question).
 behavioral depending on question index.
 - "topic" should be a short 1-3 word label (e.g. "Exception Handling", \
 "REST APIs", "Team Conflict").
-
+{coding_block}
 Return JSON in exactly this shape:
-{{
-  "question": "the full question text",
-  "topic": "short topic label"
-}}"""
+{json_shape}"""
