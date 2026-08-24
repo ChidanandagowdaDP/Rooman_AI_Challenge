@@ -3,6 +3,10 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import DifficultyGauge from "../components/DifficultyGauge.jsx";
 import DimensionScores from "../components/DimensionScores.jsx";
 import { api, API_URL, ApiError, getToken } from "../api/client.js";
+import {
+  useSpeechRecognition,
+  useSpeechSynthesis,
+} from "../hooks/useSpeech.js";
 import "./Interview.css";
 
 export default function Interview() {
@@ -25,6 +29,20 @@ export default function Interview() {
 
   const textareaRef = useRef(null);
   const questionStartRef = useRef(Date.now());
+
+  /* ----- Voice mode (browser-native STT/TTS) ----- */
+  const appendTranscript = useCallback((text) => {
+    setAnswer((prev) => (prev ? `${prev} ${text}` : text));
+  }, []);
+  const {
+    listening,
+    interim,
+    sttError,
+    sttSupported,
+    start: startListening,
+    stop: stopListening,
+  } = useSpeechRecognition({ onFinal: appendTranscript });
+  const { speak, stopSpeaking, speaking, ttsSupported } = useSpeechSynthesis();
 
   /* ----- Recover state after a browser refresh ----- */
   useEffect(() => {
@@ -73,6 +91,14 @@ export default function Interview() {
   useEffect(() => {
     if (phase === "answering") textareaRef.current?.focus();
   }, [phase, question]);
+
+  /* ----- Stop voice I/O whenever we leave the answering phase or unmount ----- */
+  useEffect(() => {
+    if (phase !== "answering") {
+      stopListening();
+      stopSpeaking();
+    }
+  }, [phase, stopListening, stopSpeaking]);
 
   const wordCount = answer.trim() ? answer.trim().split(/\s+/).length : 0;
 
@@ -290,7 +316,31 @@ export default function Interview() {
 
           {phase !== "finishing" && (
             <>
-              <p className="interview__question">{question.text}</p>
+              <div className="interview__question-row">
+                <p className="interview__question">{question.text}</p>
+                {ttsSupported && (
+                  <button
+                    type="button"
+                    className={`interview__speak ${speaking ? "interview__speak--on" : ""}`}
+                    onClick={() =>
+                      speaking ? stopSpeaking() : speak(question.text)
+                    }
+                    aria-label={speaking ? "Stop reading aloud" : "Read question aloud"}
+                    title={speaking ? "Stop reading aloud" : "Read question aloud"}
+                  >
+                    {speaking ? (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor" stroke="none" />
+                      </svg>
+                    ) : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M11 5 6 9H3v6h3l5 4V5Z" strokeLinejoin="round" />
+                        <path d="M15.5 8.5a5 5 0 0 1 0 7M18 6a8.5 8.5 0 0 1 0 12" strokeLinecap="round" />
+                      </svg>
+                    )}
+                  </button>
+                )}
+              </div>
 
               {(phase === "answering" || phase === "evaluating") && (
                 <form onSubmit={handleSubmit} className="interview__form">
@@ -306,6 +356,27 @@ export default function Interview() {
                     <span className={`interview__words mono ${wordCount > 0 ? "" : "interview__words--zero"}`}>
                       {wordCount} word{wordCount === 1 ? "" : "s"}
                     </span>
+                    {sttSupported && phase === "answering" && (
+                      <>
+                        {listening && interim && (
+                          <span className="interview__interim mono">“{interim}”</span>
+                        )}
+                        <button
+                          type="button"
+                          className={`interview__mic ${listening ? "interview__mic--live" : ""}`}
+                          onClick={() => (listening ? stopListening() : startListening())}
+                          disabled={phase !== "answering"}
+                          aria-label={listening ? "Stop voice input" : "Answer by voice"}
+                          title={listening ? "Stop voice input" : "Answer by voice"}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="9" y="2.5" width="6" height="11" rx="3" />
+                            <path d="M5 11a7 7 0 0 0 14 0M12 18v3.5" strokeLinecap="round" />
+                          </svg>
+                          {listening ? "Listening…" : "Voice"}
+                        </button>
+                      </>
+                    )}
                     <span className="interview__shortcut mono">Ctrl + Enter to submit</span>
                     <button type="submit" className="btn btn--primary" disabled={phase === "evaluating"}>
                       {phase === "evaluating" ? (
@@ -317,10 +388,11 @@ export default function Interview() {
                       )}
                     </button>
                   </div>
+                  {(sttError || error) && phase === "answering" && (
+                    <div className="error-banner">⚠ {sttError || error}</div>
+                  )}
                 </form>
               )}
-
-              {error && phase === "answering" && <div className="error-banner">⚠ {error}</div>}
 
               {phase === "generating" && (
                 <div className="interview__typing fade-up">
