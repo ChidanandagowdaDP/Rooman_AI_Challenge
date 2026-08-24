@@ -23,6 +23,12 @@ class Difficulty(str, Enum):
     HARD = "hard"
 
 
+class ScoringFocus(str, Enum):
+    TECHNICAL_DEPTH = "technical_depth"
+    BALANCED = "balanced"
+    COMMUNICATION = "communication"
+
+
 class AdaptiveAction(str, Enum):
     INCREASE_DIFFICULTY = "INCREASE_DIFFICULTY"
     MAINTAIN_DIFFICULTY = "MAINTAIN_DIFFICULTY"
@@ -61,6 +67,7 @@ class StartInterviewRequest(BaseModel):
     interview_type: InterviewType = InterviewType.TECHNICAL
     difficulty: Difficulty = Difficulty.MEDIUM
     num_questions: int = Field(default=7, ge=5, le=10)
+    scoring_focus: ScoringFocus = ScoringFocus.TECHNICAL_DEPTH
 
     @field_validator("role")
     @classmethod

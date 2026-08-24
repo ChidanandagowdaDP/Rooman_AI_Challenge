@@ -284,6 +284,36 @@ def test_get_interview_detail_includes_current_question(mock_call_json):
     assert missing.status_code == 404
 
 
+@patch("app.agents.evaluator.call_json")
+@patch("app.agents.interviewer.call_json")
+def test_scoring_focus_changes_question_score(mock_question, mock_eval):
+    """Same raw dimensions must produce different scores under different focuses."""
+    mock_question.return_value = _question_response()
+
+    # Clear but shallow answer: clarity 10, depth 2.
+    raw_dims = {"accuracy": 6, "relevance": 7, "completeness": 4, "clarity": 10, "depth": 2}
+    mock_eval.return_value = _eval_response(raw_dims)
+
+    def run(focus):
+        headers = _register_and_login()
+        payload = _start_payload() | {"scoring_focus": focus}
+        start = client.post("/api/interviews", json=payload, headers=headers).json()
+        resp = client.post(
+            f"/api/interviews/{start['session_id']}/answers",
+            json={
+                "question_id": start["first_question"]["id"],
+                "answer_text": "A well-spoken but surface-level answer.",
+            },
+            headers=headers,
+        )
+        assert resp.status_code == 200
+        return resp.json()["evaluation"]["score"]
+
+    communication_score = run("communication")
+    technical_score = run("technical_depth")
+    assert communication_score > technical_score
+
+
 @patch("app.agents.interviewer.stream_question_text")
 @patch("app.agents.evaluator.call_json")
 @patch("app.agents.interviewer.generate_question")

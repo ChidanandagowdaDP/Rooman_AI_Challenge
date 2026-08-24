@@ -156,6 +156,7 @@ def start_interview(
             difficulty=payload.difficulty,
             num_questions=payload.num_questions,
             owner_id=user.id,
+            scoring_focus=payload.scoring_focus.value,
         )
     except LLMJSONError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc

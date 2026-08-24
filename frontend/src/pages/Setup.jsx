@@ -14,6 +14,11 @@ const DIFFICULTIES = [
   { value: "medium", label: "Medium" },
   { value: "hard", label: "Hard" },
 ];
+const SCORING_FOCUS_OPTIONS = [
+  { value: "technical_depth", label: "Technical depth", hint: "Correctness & understanding weigh most" },
+  { value: "balanced", label: "Balanced", hint: "All five dimensions equal" },
+  { value: "communication", label: "Communication", hint: "Clarity weighs most" },
+];
 
 export default function Setup() {
   const navigate = useNavigate();
@@ -23,6 +28,7 @@ export default function Setup() {
   const [skills, setSkills] = useState([]);
   const [interviewType, setInterviewType] = useState("technical");
   const [difficulty, setDifficulty] = useState("medium");
+  const [scoringFocus, setScoringFocus] = useState("technical_depth");
   const [numQuestions, setNumQuestions] = useState(7);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
@@ -64,6 +70,7 @@ export default function Setup() {
         skills,
         interview_type: interviewType,
         difficulty,
+        scoring_focus: scoringFocus,
         num_questions: numQuestions,
       });
       navigate(`/interview/${result.session_id}`, {
@@ -189,6 +196,31 @@ export default function Setup() {
                 </label>
               ))}
             </div>
+          </div>
+
+          <div className="field">
+            <span className="field__legend">Scoring focus</span>
+            <div className="pill-group pill-group--cards">
+              {SCORING_FOCUS_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`pill-card ${scoringFocus === opt.value ? "pill-card--active" : ""}`}
+                >
+                  <input
+                    type="radio"
+                    name="scoring_focus"
+                    value={opt.value}
+                    checked={scoringFocus === opt.value}
+                    onChange={() => setScoringFocus(opt.value)}
+                  />
+                  <strong>{opt.label}</strong>
+                  <span>{opt.hint}</span>
+                </label>
+              ))}
+            </div>
+            <span className="field__hint">
+              Controls how the five answer dimensions are weighted into each question score.
+            </span>
           </div>
 
           {error && <div className="error-banner">⚠ {error}</div>}

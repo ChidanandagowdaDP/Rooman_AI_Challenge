@@ -5,25 +5,58 @@ module is the single source of truth for turning those into the weighted
 per-question score, topic averages, and the final 0-100 composite scores.
 """
 
-# Weighted average — accuracy and depth matter most for a technical bar.
-DIMENSION_WEIGHTS = {
-    "accuracy": 0.30,
-    "relevance": 0.20,
-    "completeness": 0.20,
-    "clarity": 0.10,
-    "depth": 0.20,
+# Named weight presets. Each maps the five LLM-scored dimensions onto a
+# 0-10 weighted average; every preset must sum to ~1.0.
+WEIGHT_PRESETS = {
+    # Correctness and understanding dominate — the classic technical bar.
+    "technical_depth": {
+        "accuracy": 0.30,
+        "relevance": 0.20,
+        "completeness": 0.15,
+        "clarity": 0.10,
+        "depth": 0.25,
+    },
+    # Even spread across all five dimensions.
+    "balanced": {
+        "accuracy": 0.20,
+        "relevance": 0.20,
+        "completeness": 0.20,
+        "clarity": 0.20,
+        "depth": 0.20,
+    },
+    # For behavioral/client-facing roles: how well ideas are conveyed matters most.
+    "communication": {
+        "accuracy": 0.15,
+        "relevance": 0.25,
+        "completeness": 0.10,
+        "clarity": 0.35,
+        "depth": 0.15,
+    },
 }
+
+DEFAULT_FOCUS = "technical_depth"
+
+
+def weights_for(focus: str | None) -> dict:
+    """Resolve a scoring-focus name to its weight dict, falling back to default."""
+    return WEIGHT_PRESETS.get(focus or DEFAULT_FOCUS, WEIGHT_PRESETS[DEFAULT_FOCUS])
+
+
+def normalize_focus(focus: str | None) -> str:
+    """Canonical focus name; unknown values fall back to the default."""
+    return focus if focus in WEIGHT_PRESETS else DEFAULT_FOCUS
 
 
 def clamp(value: float, lo: float = 0.0, hi: float = 10.0) -> float:
     return max(lo, min(hi, value))
 
 
-def compute_question_score(dimensions: dict) -> float:
+def compute_question_score(dimensions: dict, weights: dict | None = None) -> float:
     """Weighted average of the five evaluation dimensions, rounded to 1dp."""
+    active = weights or WEIGHT_PRESETS[DEFAULT_FOCUS]
     total = sum(
         clamp(float(dimensions[dim])) * weight
-        for dim, weight in DIMENSION_WEIGHTS.items()
+        for dim, weight in active.items()
     )
     return round(total, 1)
 

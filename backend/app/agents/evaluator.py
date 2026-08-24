@@ -9,7 +9,13 @@ from app.services.scoring_service import clamp, compute_question_score
 
 
 def evaluate_answer(
-    *, question: str, topic: str, role: str, experience: str, answer: str
+    *,
+    question: str,
+    topic: str,
+    role: str,
+    experience: str,
+    answer: str,
+    weights: dict | None = None,
 ) -> dict:
     prompt = build_evaluation_prompt(
         question=question, topic=topic, role=role, experience=experience, answer=answer
@@ -26,7 +32,7 @@ def evaluate_answer(
 
     return {
         **dimensions,
-        "score": compute_question_score(dimensions),
+        "score": compute_question_score(dimensions, weights),
         "strengths": result.get("strengths", []),
         "weaknesses": result.get("weaknesses", []),
         "feedback": result.get("feedback", ""),

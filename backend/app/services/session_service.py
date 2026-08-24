@@ -16,7 +16,7 @@ from app.db import (
     save_session,
 )
 from app.models.schemas import AdaptiveAction, Difficulty
-from app.services import llm_service
+from app.services import llm_service, scoring_service
 
 
 class SessionNotFoundError(Exception):
@@ -40,6 +40,7 @@ def create_session(
     difficulty: Difficulty,
     num_questions: int,
     owner_id: str | None = None,
+    scoring_focus: str = "technical_depth",
 ) -> dict:
     session_id = uuid.uuid4().hex
 
@@ -62,6 +63,7 @@ def create_session(
         "experience": experience,
         "skills": skills,
         "interview_type": interview_type,
+        "scoring_focus": scoring_service.normalize_focus(scoring_focus),
         "current_difficulty": difficulty.value,
         "num_questions": num_questions,
         "current_question": first_question | {"difficulty": difficulty.value},
@@ -136,6 +138,7 @@ def submit_answer(session_id: str, *, question_id: str, answer_text: str) -> dic
         role=state["role"],
         experience=state["experience"],
         answer=answer_text,
+        weights=scoring_service.weights_for(state.get("scoring_focus")),
     )
 
     record = {
@@ -216,6 +219,7 @@ def submit_answer_stream(session_id: str, *, question_id: str, answer_text: str)
             role=state["role"],
             experience=state["experience"],
             answer=answer_text,
+            weights=scoring_service.weights_for(state.get("scoring_focus")),
         )
 
         record = {
