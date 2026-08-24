@@ -11,6 +11,8 @@ export default function Results() {
   const [report, setReport] = useState(null);
   const [error, setError] = useState(null);
   const [openQuestion, setOpenQuestion] = useState(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfError, setPdfError] = useState(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -25,6 +27,27 @@ export default function Results() {
       cancelled = true;
     };
   }, [sessionId]);
+
+  async function downloadPdf() {
+    setPdfBusy(true);
+    try {
+      const blob = await api.downloadReportPdf(sessionId);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `interview-report-${sessionId.slice(0, 12)}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setPdfError(
+        err instanceof ApiError ? err.message : "Could not generate the PDF."
+      );
+    } finally {
+      setPdfBusy(false);
+    }
+  }
 
   if (error) {
     return (
@@ -156,12 +179,13 @@ export default function Results() {
       </section>
 
       <div className="results__actions no-print">
+        {pdfError && <p className="results__pdf-error">{pdfError}</p>}
         <Link to="/setup" className="btn btn--primary">Start another interview</Link>
-        <button className="btn" onClick={() => window.print()}>
+        <button className="btn" onClick={downloadPdf} disabled={pdfBusy}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-            <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" />
+            <path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Print / save PDF
+          {pdfBusy ? "Generating PDF…" : "Download PDF"}
         </button>
       </div>
     </main>

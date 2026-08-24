@@ -107,6 +107,29 @@ export const api = {
   listInterviews: () => request("/api/interviews"),
 
   getReport: (sessionId) => request(`/api/interviews/${sessionId}/report`),
+
+  async downloadReportPdf(sessionId) {
+    let response;
+    try {
+      response = await fetch(
+        `${API_URL}/api/interviews/${sessionId}/report.pdf`,
+        { headers: authHeaders() }
+      );
+    } catch {
+      throw new ApiError("Could not reach the InterviewAI server.", 0);
+    }
+    if (!response.ok) {
+      let detail = `Request failed (${response.status})`;
+      try {
+        const body = await response.json();
+        detail = body.detail || detail;
+      } catch {
+        /* PDF error responses have no JSON body */
+      }
+      throw new ApiError(detail, response.status);
+    }
+    return response.blob();
+  },
 };
 
 export { ApiError };

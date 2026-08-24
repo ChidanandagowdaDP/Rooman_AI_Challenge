@@ -271,6 +271,12 @@
   margin-top: 34px;
 }
 
+.results__pdf-error {
+  color: var(--bad);
+  font-size: 13.5px;
+  align-self: center;
+}
+
 @media (max-width: 800px) {
   .results__overall {
     flex-direction: column;
