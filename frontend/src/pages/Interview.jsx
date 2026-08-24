@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import DifficultyGauge from "../components/DifficultyGauge.jsx";
 import DimensionScores from "../components/DimensionScores.jsx";
@@ -11,6 +11,8 @@ export default function Interview() {
   const location = useLocation();
 
   const [question, setQuestion] = useState(location.state?.firstQuestion ?? null);
+  const [loading, setLoading] = useState(!location.state?.firstQuestion);
+  const [loadError, setLoadError] = useState(null);
   const [answer, setAnswer] = useState("");
   const [evaluation, setEvaluation] = useState(null);
   const [adaptiveAction, setAdaptiveAction] = useState(null);
@@ -18,24 +20,64 @@ export default function Interview() {
   const [progress, setProgress] = useState({ answered: 0, total: question?.total ?? 0 });
   const [phase, setPhase] = useState("answering"); // answering | evaluating | reviewing | finishing
   const [error, setError] = useState(null);
+  const [elapsed, setElapsed] = useState(0);
 
-  if (!question) {
-    // Page was opened directly (e.g. refresh) without setup state.
-    return (
-      <main className="container interview-empty">
-        <div className="panel interview-empty__card">
-          <h2>No active interview found</h2>
-          <p>This session's question data isn't available in this browser tab.</p>
-          <button className="btn btn--primary" onClick={() => navigate("/setup")}>
-            Start a new interview
-          </button>
-        </div>
-      </main>
-    );
-  }
+  const textareaRef = useRef(null);
+  const questionStartRef = useRef(Date.now());
+
+  /* ----- Recover state after a browser refresh ----- */
+  useEffect(() => {
+    if (location.state?.firstQuestion) return;
+    let cancelled = false;
+    api
+      .getInterview(sessionId)
+      .then((detail) => {
+        if (cancelled) return;
+        if (detail.completed) {
+          navigate(`/results/${sessionId}`, { replace: true });
+        } else if (detail.current_question) {
+          setQuestion(detail.current_question);
+          setDifficulty(detail.current_question.difficulty);
+          setProgress({ answered: detail.answered, total: detail.num_questions });
+          setLoading(false);
+        } else {
+          setLoadError("This session has no live question. Start a new interview.");
+          setLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(
+          err instanceof ApiError ? err.message : "Could not load this interview session."
+        );
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionId, location.state, navigate]);
+
+  /* ----- Reset per-question timer whenever the question changes ----- */
+  useEffect(() => {
+    if (!question || phase !== "answering") return;
+    questionStartRef.current = Date.now();
+    setElapsed(0);
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - questionStartRef.current) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [question, phase]);
+
+  /* ----- Focus textarea on each new question ----- */
+  useEffect(() => {
+    if (phase === "answering") textareaRef.current?.focus();
+  }, [phase, question]);
+
+  const wordCount = answer.trim() ? answer.trim().split(/\s+/).length : 0;
 
   async function handleSubmit(e) {
-    e.preventDefault();
+    e?.preventDefault();
+    if (phase === "evaluating" || phase === "finishing") return;
     if (!answer.trim()) {
       setError("Write an answer before submitting.");
       return;
@@ -68,28 +110,95 @@ export default function Interview() {
     }
   }
 
-  function handleContinue() {
+  const handleContinue = useCallback(() => {
     setAnswer("");
     setEvaluation(null);
     setAdaptiveAction(null);
+    setError(null);
     setPhase("answering");
+  }, []);
+
+  /* ----- Keyboard shortcuts ----- */
+  useEffect(() => {
+    function onKey(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        if (phase === "answering") handleSubmit();
+        else if (phase === "reviewing") handleContinue();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, answer, handleContinue]);
+
+  function handleQuit() {
+    if (
+      window.confirm(
+        "Quit this interview? Your progress is saved and you can resume it from the home page."
+      )
+    ) {
+      navigate("/");
+    }
   }
 
-  function handleViewReport() {
-    navigate(`/results/${sessionId}`);
+  /* ----- Empty / loading / error states ----- */
+  if (loading) {
+    return (
+      <main className="container interview-empty">
+        <div className="panel interview-empty__card">
+          <span className="spinner" />
+          <p>Loading your interview…</p>
+        </div>
+      </main>
+    );
   }
 
-  const pct = progress.total ? Math.round((progress.answered / progress.total) * 100) : 0;
+  if (loadError || !question) {
+    return (
+      <main className="container interview-empty">
+        <div className="panel interview-empty__card">
+          <h2>No active interview found</h2>
+          <p>{loadError ?? "This session's question data isn't available in this browser tab."}</p>
+          <button className="btn btn--primary" onClick={() => navigate("/setup")}>
+            Start a new interview
+          </button>
+        </div>
+      </main>
+    );
+  }
+
+  const pct = progress.total
+    ? Math.round((progress.answered / progress.total) * 100)
+    : 0;
 
   return (
     <main className="container interview">
-      <div className="interview__grid">
+      {/* Session strip */}
+      <div className="interview__strip fade-up">
+        <button className="btn btn--ghost btn--sm" onClick={handleQuit}>
+          ← Quit
+        </button>
+        <span className="interview__timer mono" title="Time on current question">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" strokeLinecap="round" />
+          </svg>
+          {formatClock(elapsed)}
+        </span>
+      </div>
+
+      <div className="interview__grid fade-up fade-up-1">
         <section className="panel interview__stage">
           <div className="interview__stage-header">
             <span className="interview__progress-label mono">
-              Question {Math.min(progress.answered + 1, progress.total || question.total)} / {progress.total || question.total}
+              Question {Math.min(progress.answered + 1, progress.total || question.total)} /{" "}
+              {progress.total || question.total}
             </span>
-            <span className="interview__topic-chip">{question.topic}</span>
+            <div className="interview__chips">
+              <span className={`badge badge--${difficultyBadge(difficulty)} mono`}>
+                {difficulty}
+              </span>
+              <span className="badge badge--accent">{question.topic}</span>
+            </div>
           </div>
 
           <div className="interview__progress-track">
@@ -103,27 +212,46 @@ export default function Interview() {
               {(phase === "answering" || phase === "evaluating") && (
                 <form onSubmit={handleSubmit} className="interview__form">
                   <textarea
-                    rows={8}
+                    ref={textareaRef}
+                    rows={9}
                     placeholder="Type your answer here…"
                     value={answer}
                     onChange={(e) => setAnswer(e.target.value)}
                     disabled={phase === "evaluating"}
                   />
-                  {error && <div className="error-banner">{error}</div>}
-                  <button type="submit" className="btn btn--primary" disabled={phase === "evaluating"}>
-                    {phase === "evaluating" ? "Evaluating your answer…" : "Submit answer"}
-                  </button>
+                  <div className="interview__form-foot">
+                    <span className={`interview__words mono ${wordCount > 0 ? "" : "interview__words--zero"}`}>
+                      {wordCount} word{wordCount === 1 ? "" : "s"}
+                    </span>
+                    <span className="interview__shortcut mono">Ctrl + Enter to submit</span>
+                    <button type="submit" className="btn btn--primary" disabled={phase === "evaluating"}>
+                      {phase === "evaluating" ? (
+                        <>
+                          <span className="spinner" /> Evaluating…
+                        </>
+                      ) : (
+                        "Submit answer"
+                      )}
+                    </button>
+                  </div>
                 </form>
               )}
 
+              {error && phase === "answering" && <div className="error-banner">⚠ {error}</div>}
+
               {phase === "reviewing" && evaluation && (
-                <div className="interview__result">
+                <div className="interview__result fade-up">
                   <div className="interview__result-header">
-                    <span className="interview__result-score mono">
-                      {evaluation.score.toFixed(1)}
-                      <span className="interview__result-max">/10</span>
+                    <div>
+                      <span className="interview__result-score mono">
+                        {evaluation.score.toFixed(1)}
+                        <span className="interview__result-max">/10</span>
+                      </span>
+                      <span className="interview__result-label">Question score</span>
+                    </div>
+                    <span className={`badge badge--${actionTone(adaptiveAction)}`}>
+                      {actionLabel(adaptiveAction)}
                     </span>
-                    <span className="interview__result-label">Question score</span>
                   </div>
 
                   <DimensionScores evaluation={evaluation} />
@@ -136,8 +264,9 @@ export default function Interview() {
                   )}
                   <p className="interview__result-feedback">{evaluation.feedback}</p>
 
-                  <button className="btn btn--primary" onClick={handleContinue}>
-                    Continue interview
+                  <button className="btn btn--primary interview__continue" onClick={handleContinue}>
+                    Continue interview →
+                    <kbd className="mono">Ctrl+↵</kbd>
                   </button>
                 </div>
               )}
@@ -145,21 +274,21 @@ export default function Interview() {
           )}
 
           {phase === "finishing" && evaluation && (
-            <div className="interview__result">
+            <div className="interview__result fade-up">
+              <h2 className="interview__done-title">Interview complete 🎉</h2>
               <div className="interview__result-header">
-                <span className="interview__result-score mono">
-                  {evaluation.score.toFixed(1)}
-                  <span className="interview__result-max">/10</span>
-                </span>
-                <span className="interview__result-label">Final question score</span>
+                <div>
+                  <span className="interview__result-score mono">
+                    {evaluation.score.toFixed(1)}
+                    <span className="interview__result-max">/10</span>
+                  </span>
+                  <span className="interview__result-label">Final question score</span>
+                </div>
               </div>
               <DimensionScores evaluation={evaluation} />
               <p className="interview__result-feedback">{evaluation.feedback}</p>
-              <p className="interview__complete-note">
-                That was the last question — your full report is ready.
-              </p>
-              <button className="btn btn--primary" onClick={handleViewReport}>
-                View interview report
+              <button className="btn btn--primary interview__continue" onClick={() => navigate(`/results/${sessionId}`)}>
+                View full report →
               </button>
             </div>
           )}
@@ -167,6 +296,7 @@ export default function Interview() {
 
         <aside className="interview__sidebar">
           <div className="panel interview__gauge-card">
+            <span className="section-label">Calibration</span>
             <DifficultyGauge difficulty={difficulty} lastAction={adaptiveAction} />
           </div>
         </aside>
@@ -186,4 +316,32 @@ function FeedbackList({ title, items, tone }) {
       </ul>
     </div>
   );
+}
+
+function difficultyBadge(d) {
+  return d === "easy" ? "good" : d === "hard" ? "bad" : "warn";
+}
+
+function actionLabel(action) {
+  switch (action) {
+    case "INCREASE_DIFFICULTY": return "▲ Difficulty raised";
+    case "DECREASE_DIFFICULTY": return "▼ Difficulty lowered";
+    case "TARGET_WEAK_TOPIC": return "◎ Targeting weak topic";
+    default: return "— Holding steady";
+  }
+}
+
+function actionTone(action) {
+  switch (action) {
+    case "INCREASE_DIFFICULTY": return "good";
+    case "DECREASE_DIFFICULTY": return "warn";
+    case "TARGET_WEAK_TOPIC": return "bad";
+    default: return "accent";
+  }
+}
+
+function formatClock(totalSeconds) {
+  const m = Math.floor(totalSeconds / 60);
+  const s = totalSeconds % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 }

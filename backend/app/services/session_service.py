@@ -10,7 +10,11 @@ state this module maintains. See README "Design Decisions" for why.
 import uuid
 
 from app.agents import adaptive_controller, evaluator, interviewer
-from app.db import load_session, save_session
+from app.db import (
+    list_sessions as _db_list_sessions,
+    load_session,
+    save_session,
+)
 from app.models.schemas import AdaptiveAction, Difficulty
 
 
@@ -72,6 +76,43 @@ def get_session(session_id: str) -> dict:
     if state is None:
         raise SessionNotFoundError(session_id)
     return state
+
+
+def _summary(state: dict) -> dict:
+    return {
+        "session_id": state["session_id"],
+        "role": state["role"],
+        "experience": state["experience"],
+        "interview_type": state["interview_type"],
+        "current_difficulty": state["current_difficulty"],
+        "num_questions": state["num_questions"],
+        "answered": len(state["evaluations"]),
+        "completed": state["completed"],
+        "created_at": state.get("created_at"),
+        "updated_at": state.get("updated_at"),
+    }
+
+
+def list_sessions() -> list[dict]:
+    """Newest-first summaries for the interview history view."""
+    return [_summary(state) for state in _db_list_sessions()]
+
+
+def get_session_view(session_id: str) -> dict:
+    """
+    Client-facing session detail. Includes the live current question so a
+    browser refresh mid-interview can resume exactly where it left off.
+    """
+    state = get_session(session_id)
+    view = _summary(state)
+    if not state["completed"] and state["current_question"] is not None:
+        q = state["current_question"]
+        view["current_question"] = {
+            **q,
+            "index": len(state["evaluations"]) + 1,
+            "total": state["num_questions"],
+        }
+    return view
 
 
 def submit_answer(session_id: str, *, question_id: str, answer_text: str) -> dict:

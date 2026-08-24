@@ -1,34 +1,53 @@
 .dimensions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 13px;
 }
 
 .dimensions__item {
+  animation: dim-in 500ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes dim-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.dimensions__head {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 10px 12px;
-  background: var(--bg-inset);
-  border: 1px solid var(--border-soft);
-  border-radius: var(--radius-sm);
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
 }
 
 .dimensions__label {
-  font-size: 11px;
-  color: var(--text-faint);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
 }
 
 .dimensions__value {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
-  color: var(--text);
 }
 
 .dimensions__max {
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 11px;
   color: var(--text-faint);
+  margin-left: 2px;
+}
+
+.dimensions__track {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+
+.dimensions__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gradient);
+  transition: width 800ms cubic-bezier(0.22, 1, 0.36, 1);
 }

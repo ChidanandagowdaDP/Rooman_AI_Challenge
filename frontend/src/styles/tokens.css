@@ -1,46 +1,48 @@
 /*
-  InterviewAI design tokens — "calibration console" direction.
-
-  The product's job is to measure something (a candidate's skill) and show
-  the measurement changing live. So the visual language borrows from lab
-  instruments: dark instrument-panel background, warm amber signal color
-  (the one color that reads as "live data" without tipping into generic
-  near-black/acid-green AI-dashboard territory), and monospace for every
-  number that represents a live reading.
+  InterviewAI design tokens — "interview intelligence" theme.
+  Deep navy surfaces, indigo→cyan signal gradient, mono numerals for
+  every live reading. Professional, calm, instrument-like.
 */
 :root {
-  /* Surface */
-  --bg: #12151a;
-  --bg-panel: #1a1e25;
-  --bg-panel-raised: #21262f;
-  --bg-inset: #0d0f13;
-  --border: #2a303a;
-  --border-soft: #232830;
+  /* Surfaces */
+  --bg: #0a0d14;
+  --bg-panel: #10141e;
+  --bg-panel-raised: #151b28;
+  --bg-inset: #070910;
+  --border: #1f2736;
+  --border-soft: #182030;
 
   /* Text */
-  --text: #ece9e1;
-  --text-dim: #9ba1ac;
-  --text-faint: #5f6672;
+  --text: #e8ecf4;
+  --text-dim: #97a1b7;
+  --text-faint: #5d6779;
 
   /* Signal colors */
-  --accent: #e0a458;
-  --accent-soft: rgba(224, 164, 88, 0.14);
-  --accent-strong: #f0b96e;
-  --good: #7fb37a;
-  --good-soft: rgba(127, 179, 122, 0.14);
-  --bad: #d9695a;
-  --bad-soft: rgba(217, 105, 90, 0.14);
+  --accent: #818cf8;
+  --accent-2: #22d3ee;
+  --accent-strong: #a5b0ff;
+  --gradient: linear-gradient(135deg, #6366f1 0%, #818cf8 45%, #22d3ee 100%);
+  --accent-soft: rgba(129, 140, 248, 0.12);
+  --good: #34d399;
+  --good-soft: rgba(52, 211, 153, 0.12);
+  --bad: #f87171;
+  --bad-soft: rgba(248, 113, 113, 0.1);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.12);
 
   /* Type */
-  --font-display: "Space Grotesk", "Inter", sans-serif;
-  --font-body: "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Space Grotesk", "Inter", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", monospace;
 
   /* Scale */
-  --radius-sm: 4px;
-  --radius-md: 8px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 
-  --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.03) inset,
-    0 20px 40px -20px rgba(0, 0, 0, 0.6);
+  --shadow-panel: 0 0 0 1px rgba(255, 255, 255, 0.02),
+    0 24px 48px -24px rgba(0, 0, 0, 0.7);
+  --shadow-pop: 0 32px 64px -24px rgba(0, 0, 0, 0.85);
+  --glow-accent: 0 0 40px -8px rgba(99, 102, 241, 0.35);
 }

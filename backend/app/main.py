@@ -16,6 +16,8 @@ from app.models.schemas import (
     FinalReportOut,
     QuestionOut,
     QuestionRecord,
+    SessionDetailOut,
+    SessionSummaryOut,
     StartInterviewRequest,
     StartInterviewResponse,
     SubmitAnswerRequest,
@@ -53,6 +55,20 @@ def on_startup() -> None:
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/interviews", response_model=list[SessionSummaryOut])
+def list_interviews() -> list[SessionSummaryOut]:
+    return [SessionSummaryOut(**s) for s in session_service.list_sessions()]
+
+
+@app.get("/api/interviews/{session_id}", response_model=SessionDetailOut)
+def get_interview(session_id: str) -> SessionDetailOut:
+    try:
+        view = session_service.get_session_view(session_id)
+    except session_service.SessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Session not found") from exc
+    return SessionDetailOut(**view)
 
 
 @app.post("/api/interviews", response_model=StartInterviewResponse)

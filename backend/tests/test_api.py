@@ -151,3 +151,35 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
     assert len(report["questions"]) == 5
     sql_topic = next(t for t in report["topic_scores"] if t["topic"] == "SQL")
     assert sql_topic["average_score"] < 6.0
+
+
+@patch("app.agents.interviewer.call_json")
+def test_list_interviews_returns_summaries(mock_call_json):
+    mock_call_json.return_value = _question_response()
+    created = client.post("/api/interviews", json=_start_payload()).json()
+    resp = client.get("/api/interviews")
+    assert resp.status_code == 200
+    sessions = resp.json()
+    summary = next(s for s in sessions if s["session_id"] == created["session_id"])
+    assert summary["answered"] == 0
+    assert summary["completed"] is False
+    assert summary["num_questions"] == 5
+
+
+@patch("app.agents.interviewer.call_json")
+def test_get_interview_detail_includes_current_question(mock_call_json):
+    mock_call_json.return_value = _question_response()
+    created = client.post("/api/interviews", json=_start_payload()).json()
+
+    resp = client.get(f"/api/interviews/{created['session_id']}")
+    assert resp.status_code == 200
+    detail = resp.json()
+    assert detail["answered"] == 0
+    assert detail["completed"] is False
+    q = detail["current_question"]
+    assert q["id"] == created["first_question"]["id"]
+    assert q["index"] == 1
+    assert q["total"] == 5
+
+    missing = client.get("/api/interviews/does-not-exist")
+    assert missing.status_code == 404

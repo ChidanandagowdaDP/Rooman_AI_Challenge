@@ -61,6 +61,25 @@ class StartInterviewResponse(BaseModel):
     first_question: QuestionOut
 
 
+# ---------- Session listing / detail ----------
+
+class SessionSummaryOut(BaseModel):
+    session_id: str
+    role: str
+    experience: str
+    interview_type: str
+    current_difficulty: Difficulty
+    num_questions: int
+    answered: int
+    completed: bool
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+
+
+class SessionDetailOut(SessionSummaryOut):
+    current_question: Optional[QuestionOut] = None
+
+
 # ---------- Answer submission ----------
 
 class SubmitAnswerRequest(BaseModel):

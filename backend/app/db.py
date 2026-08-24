@@ -60,3 +60,18 @@ def load_session(session_id: str) -> dict | None:
             "SELECT state FROM sessions WHERE id = ?", (session_id,)
         ).fetchone()
         return json.loads(row[0]) if row else None
+
+
+def list_sessions() -> list[dict]:
+    """All sessions, newest first, with their timestamps attached."""
+    with _lock, _connect() as conn:
+        rows = conn.execute(
+            "SELECT id, state, created_at, updated_at FROM sessions ORDER BY updated_at DESC"
+        ).fetchall()
+    sessions = []
+    for session_id, raw_state, created_at, updated_at in rows:
+        state = json.loads(raw_state)
+        state["created_at"] = created_at
+        state["updated_at"] = updated_at
+        sessions.append(state)
+    return sessions

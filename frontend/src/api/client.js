@@ -48,6 +48,10 @@ export const api = {
       body: JSON.stringify(payload),
     }),
 
+  getInterview: (sessionId) => request(`/api/interviews/${sessionId}`),
+
+  listInterviews: () => request("/api/interviews"),
+
   getReport: (sessionId) => request(`/api/interviews/${sessionId}/report`),
 };
 
