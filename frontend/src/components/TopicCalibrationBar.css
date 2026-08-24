@@ -1,0 +1,57 @@
+.calibration-row {
+  display: grid;
+  grid-template-columns: 140px 1fr 44px;
+  align-items: center;
+  gap: 14px;
+  padding: 7px 0;
+}
+
+.calibration-row__label {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.calibration-row__label span:first-child {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.calibration-row__count {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
+.calibration-row__track {
+  position: relative;
+  height: 8px;
+  background: var(--bg-inset);
+  border: 1px solid var(--border-soft);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.calibration-row__fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 600ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.calibration-row__ticks span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: rgba(0, 0, 0, 0.35);
+}
+
+.calibration-row__value {
+  font-size: 13px;
+  color: var(--text-dim);
+  text-align: right;
+}
