@@ -1,5 +1,6 @@
 """
-Thin wrapper around the Anthropic API.
+Thin wrapper around any OpenAI-compatible LLM server (Ollama, vLLM,
+LM Studio, llama.cpp-server, Groq, OpenRouter, ...).
 
 Everything that talks to the LLM goes through call_json(), which:
   1. sends the system + user prompt
@@ -7,19 +8,22 @@ Everything that talks to the LLM goes through call_json(), which:
   3. parses JSON
   4. retries with a stricter follow-up instruction on parse failure
 
-This is the ONLY module in the app that imports the Anthropic SDK — keeping
+This is the ONLY module in the app that imports the OpenAI SDK — keeping
 that isolated makes it trivial to swap providers later.
 """
 import json
 import logging
 
-import anthropic
+import openai
 
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-_client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
+_client = openai.OpenAI(
+    base_url=settings.LLM_BASE_URL,
+    api_key=settings.LLM_API_KEY,
+)
 
 
 class LLMJSONError(Exception):
@@ -53,24 +57,25 @@ def call_json(
 ) -> dict:
     """Call the model and return a parsed JSON dict, retrying on bad JSON."""
     last_error: Exception | None = None
-    messages = [{"role": "user", "content": user_prompt}]
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
 
     for attempt in range(1, settings.MAX_LLM_RETRIES + 1):
         try:
-            response = _client.messages.create(
+            response = _client.chat.completions.create(
                 model=settings.MODEL_NAME,
                 max_tokens=max_tokens,
-                system=system_prompt,
                 messages=messages,
             )
-            raw_text = "".join(
-                block.text for block in response.content if block.type == "text"
-            )
+            raw_text = response.choices[0].message.content or ""
             return _extract_json(raw_text)
         except json.JSONDecodeError as exc:
             last_error = exc
             logger.warning("LLM returned invalid JSON (attempt %s): %s", attempt, exc)
             messages = [
+                {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
                 {"role": "assistant", "content": raw_text},
                 {
@@ -81,9 +86,9 @@ def call_json(
                     ),
                 },
             ]
-        except anthropic.APIError as exc:
+        except openai.APIError as exc:
             last_error = exc
-            logger.warning("Anthropic API error (attempt %s): %s", attempt, exc)
+            logger.warning("LLM API error (attempt %s): %s", attempt, exc)
 
     raise LLMJSONError(
         f"Failed to get valid JSON from model after {settings.MAX_LLM_RETRIES} attempts"

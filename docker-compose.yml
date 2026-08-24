@@ -4,10 +4,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - MODEL_NAME=${MODEL_NAME:-claude-sonnet-4-6}
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://host.docker.internal:11434/v1}
+      - LLM_API_KEY=${LLM_API_KEY:-not-needed-for-local}
+      - MODEL_NAME=${MODEL_NAME:-qwen2.5:7b}
       - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
       - DATABASE_PATH=/data/interview_ai.db
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - interview-data:/data
     restart: unless-stopped

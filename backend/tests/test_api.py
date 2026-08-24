@@ -115,23 +115,24 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
 ):
     # Strong on Python, weak on SQL twice in a row -> SQL should be targeted
     topics = itertools.cycle(["Python", "SQL", "SQL"])
-    mock_question.side_effect = [_question_response(next(topics)) for _ in range(4)]
+    mock_question.side_effect = [_question_response(next(topics)) for _ in range(6)]
 
     payload = _start_payload()
-    payload["num_questions"] = 3
     start = client.post("/api/interviews", json=payload).json()
     session_id = start["session_id"]
     question_id = start["first_question"]["id"]
 
+    strong = {"accuracy": 9, "relevance": 9, "completeness": 9, "clarity": 9, "depth": 9}
+    weak = {"accuracy": 3, "relevance": 4, "completeness": 3, "clarity": 4, "depth": 3}
+    mid = {"accuracy": 4, "relevance": 4, "completeness": 4, "clarity": 4, "depth": 4}
     eval_sequence = [
-        _eval_response({"accuracy": 9, "relevance": 9, "completeness": 9, "clarity": 9, "depth": 9}),
-        _eval_response({"accuracy": 3, "relevance": 4, "completeness": 3, "clarity": 4, "depth": 3}),
-        _eval_response({"accuracy": 4, "relevance": 4, "completeness": 4, "clarity": 4, "depth": 4}),
+        _eval_response(strong), _eval_response(weak), _eval_response(mid),
+        _eval_response(strong), _eval_response(mid),
     ]
     mock_eval.side_effect = eval_sequence
 
     last_body = None
-    for _ in range(3):
+    for _ in range(5):
         resp = client.post(
             f"/api/interviews/{session_id}/answers",
             json={"question_id": question_id, "answer_text": "An answer."},
@@ -147,6 +148,6 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
     assert report_resp.status_code == 200
     report = report_resp.json()
     assert report["overall_score"] > 0
-    assert len(report["questions"]) == 3
+    assert len(report["questions"]) == 5
     sql_topic = next(t for t in report["topic_scores"] if t["topic"] == "SQL")
     assert sql_topic["average_score"] < 6.0

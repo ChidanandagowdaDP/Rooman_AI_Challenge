@@ -131,7 +131,7 @@ are all derived from these same per-question numbers — see
 
 ## Technology stack
 
-- **Backend**: Python, FastAPI, Pydantic v2, SQLite, Anthropic SDK
+- **Backend**: Python, FastAPI, Pydantic v2, SQLite, OpenAI-compatible client (open-source models via Ollama/vLLM/Groq)
 - **Frontend**: React 18, Vite, React Router — no CSS framework; a small
   hand-built design-token system (see `frontend/src/styles/tokens.css`)
 - **Testing**: pytest, FastAPI's `TestClient`, mocked LLM calls
@@ -143,7 +143,12 @@ are all derived from these same per-question numbers — see
 
 - Python 3.11+
 - Node.js 20+
-- An Anthropic API key ([console.anthropic.com](https://console.anthropic.com/))
+- A local LLM server with an open-source model — [Ollama](https://ollama.com) is
+  the easiest option:
+  ```bash
+  ollama pull qwen2.5:7b     # or llama3.2 / mistral / phi3 ...
+  ```
+  Any OpenAI-compatible endpoint works (vLLM, LM Studio, Groq, OpenRouter).
 
 ### Backend
 
@@ -152,7 +157,7 @@ cd backend
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env            # then add your ANTHROPIC_API_KEY
+cp .env.example .env            # defaults to Ollama at http://localhost:11434/v1
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -170,9 +175,12 @@ Open the URL Vite prints (typically `http://localhost:5173`).
 ### Docker (both services)
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-your-key-here
 docker compose up --build
 ```
+
+The backend container reaches a host-installed Ollama via
+`http://host.docker.internal:11434/v1` by default. Override `LLM_BASE_URL` /
+`MODEL_NAME` to point it anywhere else.
 
 Frontend: `http://localhost:3000` · Backend: `http://localhost:8000`
 
@@ -180,10 +188,11 @@ Frontend: `http://localhost:3000` · Backend: `http://localhost:8000`
 
 **backend/.env**
 
-| Variable            | Required | Default                  | Description                          |
-|---------------------|----------|---------------------------|---------------------------------------|
-| `ANTHROPIC_API_KEY`  | Yes      | —                          | Your Anthropic API key                |
-| `MODEL_NAME`         | No       | `claude-sonnet-4-6`        | Model used for all three agent calls  |
+| Variable            | Required | Default                          | Description                                        |
+|---------------------|----------|-----------------------------------|-----------------------------------------------------|
+| `LLM_BASE_URL`       | No       | `http://localhost:11434/v1`        | OpenAI-compatible endpoint (Ollama, vLLM, Groq, …)  |
+| `LLM_API_KEY`        | No       | `not-needed-for-local`             | Key only for hosted providers                       |
+| `MODEL_NAME`         | No       | `qwen2.5:7b`                       | Model used for all three agent calls                |
 | `DATABASE_PATH`      | No       | `interview_ai.db`          | SQLite file location                  |
 | `CORS_ORIGINS`       | No       | `http://localhost:5173`    | Comma-separated allowed origins       |
 | `MAX_LLM_RETRIES`    | No       | `3`                        | Retries on malformed JSON from model  |
@@ -252,8 +261,8 @@ Tests cover:
 - `test_adaptive_controller.py` — every branch of the adaptive policy,
   including the difficulty-ladder boundaries
 - `test_api.py` — full request/response cycles for the strong / weak /
-  mixed scenarios above, with the Anthropic client mocked out so the suite
-  runs without an API key or network access
+  mixed scenarios above, with the LLM client mocked out so the suite
+  runs without a model server or network access
 
 ## Design decisions
 
