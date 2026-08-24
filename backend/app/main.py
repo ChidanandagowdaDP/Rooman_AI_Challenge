@@ -11,12 +11,13 @@ import uuid
 
 from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 
 from app import auth as auth_service
 from app.config import settings
 from app.db import create_user, get_user_by_email, init_db
 from app.rate_limit import RateLimitExceeded, check_rate_limit
+from app.services.pdf_service import build_report_pdf
 from app.models.schemas import (
     FinalReportOut,
     LoginRequest,
@@ -295,4 +296,26 @@ def get_report(session_id: str, user: UserOut = Depends(require_user)) -> FinalR
         summary=report["summary"],
         topic_scores=topic_scores,
         questions=questions,
+    )
+
+
+@app.get("/api/interviews/{session_id}/report.pdf")
+def download_report_pdf(session_id: str, user: UserOut = Depends(require_user)) -> Response:
+    try:
+        _require_owner(session_service.get_session(session_id), user)
+        report = session_service.get_or_build_report(session_id)
+    except session_service.SessionNotFoundError as exc:
+        raise HTTPException(status_code=404, detail="Session not found") from exc
+    except session_service.InterviewAlreadyCompleteError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except LLMJSONError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+    pdf_bytes = build_report_pdf(report)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="interview-report-{session_id[:12]}.pdf"'
+        },
     )

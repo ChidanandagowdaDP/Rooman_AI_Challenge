@@ -232,6 +232,19 @@ def test_mixed_candidate_targets_weak_topic_and_builds_report(
     sql_topic = next(t for t in report["topic_scores"] if t["topic"] == "SQL")
     assert sql_topic["average_score"] < 6.0
 
+    # PDF export of the same finished session
+    pdf_resp = client.get(f"/api/interviews/{session_id}/report.pdf", headers=headers)
+    assert pdf_resp.status_code == 200
+    assert pdf_resp.headers["content-type"].startswith("application/pdf")
+    assert pdf_resp.content.startswith(b"%PDF")
+    assert "attachment" in pdf_resp.headers["content-disposition"]
+
+    other = _register_and_login()
+    assert (
+        client.get(f"/api/interviews/{session_id}/report.pdf", headers=other).status_code
+        == 404
+    )
+
 
 @patch("app.agents.interviewer.call_json")
 def test_list_interviews_returns_summaries(mock_call_json):
