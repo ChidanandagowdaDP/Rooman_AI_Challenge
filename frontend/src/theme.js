@@ -20,5 +20,6 @@ export function applyTheme(theme) {
 export function toggleTheme() {
   const next = getTheme() === "dark" ? "light" : "dark";
   applyTheme(next);
+  window.dispatchEvent(new CustomEvent("ia-theme-change", { detail: next }));
   return next;
 }
